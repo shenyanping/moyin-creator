@@ -195,6 +195,7 @@ interface APIConfigActions {
   getProviderByPlatform: (platform: string) => IProvider | undefined;
   getProviderById: (id: string) => IProvider | undefined;
   syncProviderModels: (providerId: string) => Promise<{ success: boolean; count: number; error?: string }>;
+  importModelsFromPricingJson: (providerId: string, jsonText: string) => { success: boolean; count: number; error?: string };
   
   // Feature binding management (multi-select)
   setFeatureBindings: (feature: AIFeature, bindings: string[] | null) => void;
@@ -519,6 +520,57 @@ export const useAPIConfigStore = create<APIConfigStore>()(
         } catch (error) {
           console.error('[APIConfig] Model sync failed:', error);
           return { success: false, count: 0, error: '网络请求失败，请检查网络' };
+        }
+      },
+
+      importModelsFromPricingJson: (providerId, jsonText) => {
+        const provider = get().providers.find(p => p.id === providerId);
+        if (!provider) return { success: false, count: 0, error: '供应商不存在' };
+
+        try {
+          const json = JSON.parse(jsonText);
+          const data: Array<{ model_name: string; model_type?: string; tags?: string; supported_endpoint_types?: string[] }> = json.data;
+          
+          if (!Array.isArray(data) || data.length === 0) {
+            return { success: false, count: 0, error: '数据格式不正确，请确保粘贴的是完整的 JSON 响应' };
+          }
+
+          const allModelIds = new Set<string>();
+          const types: Record<string, string> = { ...get().modelTypes };
+          const tags: Record<string, string[]> = { ...get().modelTags };
+          const endpoints: Record<string, string[]> = { ...get().modelEndpointTypes };
+
+          for (const m of data) {
+            const name = m.model_name;
+            if (!name) continue;
+            
+            allModelIds.add(name);
+            
+            if (m.model_type) types[name] = m.model_type;
+            if (m.tags) {
+              tags[name] = typeof m.tags === 'string'
+                ? m.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+                : m.tags;
+            }
+            if (Array.isArray(m.supported_endpoint_types)) {
+              endpoints[name] = m.supported_endpoint_types;
+            }
+          }
+
+          set({ modelTypes: types, modelTags: tags, modelEndpointTypes: endpoints });
+
+          const modelIds = Array.from(allModelIds);
+          if (modelIds.length === 0) {
+            return { success: false, count: 0, error: '未解析到任何模型' };
+          }
+
+          get().updateProvider({ ...provider, model: modelIds });
+
+          console.log(`[APIConfig] Imported ${modelIds.length} models for ${provider.name} from pasted JSON`);
+          return { success: true, count: modelIds.length };
+        } catch (error) {
+          console.error('[APIConfig] JSON parse failed:', error);
+          return { success: false, count: 0, error: 'JSON 解析失败，请检查格式是否正确' };
         }
       },
 

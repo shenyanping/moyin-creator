@@ -23,6 +23,15 @@ import { EditImageHostDialog } from "@/components/image-host-manager/EditImageHo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -99,6 +108,7 @@ export function SettingsPanel() {
     resetAdvancedOptions,
     isImageHostConfigured,
     syncProviderModels,
+    importModelsFromPricingJson,
     setFeatureBindings,
     getFeatureBindings,
   } = useAPIConfigStore();
@@ -129,6 +139,9 @@ export function SettingsPanel() {
   const [cacheSize, setCacheSize] = useState(0);
   const [isCacheLoading, setIsCacheLoading] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importProviderId, setImportProviderId] = useState<string | null>(null);
+  const [importJsonText, setImportJsonText] = useState("");
 
   // Toggle provider expansion
   const toggleExpanded = (id: string) => {
@@ -721,6 +734,22 @@ export function SettingsPanel() {
                                     <RefreshCw className="h-4 w-4" />
                                   )}
                                 </Button>
+
+                                {provider.platform === 'memefast' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    title="手动导入模型列表"
+                                    onClick={() => {
+                                      setImportProviderId(provider.id);
+                                      setImportJsonText("");
+                                      setImportDialogOpen(true);
+                                    }}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                )}
 
                                 <Button
                                   variant="ghost"
@@ -1484,6 +1513,75 @@ export function SettingsPanel() {
         provider={editingImageHost}
         onSave={updateImageHostProvider}
       />
+
+      {/* 手动导入模型列表对话框 */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>手动导入模型列表</DialogTitle>
+            <DialogDescription>
+              由于浏览器跨域限制，自动同步可能失败。请手动获取数据并粘贴到下方。
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const provider = providers.find(p => p.id === importProviderId);
+                  if (provider?.baseUrl) {
+                    const domain = provider.baseUrl.replace(/\/v\d+$/, '');
+                    window.open(`${domain}/api/pricing_new`, '_blank');
+                  }
+                }}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                在新窗口打开获取链接
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                复制页面中的全部内容
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <Label>粘贴 JSON 数据</Label>
+              <Textarea
+                placeholder='粘贴从上面链接获取的 JSON 内容（以 {"data":[... 开头）'
+                value={importJsonText}
+                onChange={(e) => setImportJsonText(e.target.value)}
+                className="h-48 font-mono text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={() => {
+                if (!importProviderId || !importJsonText.trim()) {
+                  toast.error("请先粘贴 JSON 数据");
+                  return;
+                }
+                const result = importModelsFromPricingJson(importProviderId, importJsonText);
+                if (result.success) {
+                  toast.success(`成功导入 ${result.count} 个模型`);
+                  setImportDialogOpen(false);
+                  setImportJsonText("");
+                } else {
+                  toast.error(result.error || "导入失败");
+                }
+              }}
+              disabled={!importJsonText.trim()}
+            >
+              导入
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
