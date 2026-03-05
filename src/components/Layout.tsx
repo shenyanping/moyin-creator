@@ -24,6 +24,7 @@ import { FreedomView } from "@/components/panels/freedom";
 import { MediaView } from "@/components/panels/media";
 import { SettingsPanel } from "@/components/panels/SettingsPanel";
 import { ExportView } from "@/components/panels/export";
+import { AssistantPanel } from "@/components/ai-assistant/AssistantPanel";
 
 export function Layout() {
   const { activeTab, inProject } = useMediaPanelStore();
@@ -33,9 +34,10 @@ export function Layout() {
     return (
       <div className="h-full flex bg-background">
         <TabBar />
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {activeTab === "settings" ? <SettingsPanel /> : <Dashboard />}
         </div>
+        <AssistantPanel />
       </div>
     );
   }
@@ -47,7 +49,7 @@ export function Layout() {
     return (
       <div className="h-full flex bg-background">
         <TabBar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col">
           <ProjectHeader />
           {activeTab === "export" && <ExportView />}
           {activeTab === "settings" && <SettingsPanel />}
@@ -56,6 +58,7 @@ export function Layout() {
           {activeTab === "scenes" && <ScenesView />}
           {activeTab === "freedom" && <FreedomView />}
         </div>
+        <AssistantPanel />
       </div>
     );
   }
@@ -144,6 +147,9 @@ export function Layout() {
           )}
         </ResizablePanelGroup>
       </div>
+
+      {/* AI Assistant - inline side panel */}
+      <AssistantPanel />
     </div>
   );
 }

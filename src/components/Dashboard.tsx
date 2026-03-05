@@ -41,10 +41,12 @@ import {
   Pencil,
   Copy,
   CheckSquare,
+  Upload,
 } from "lucide-react";
 import { cn, generateUUID } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Project } from "@/stores/project-store";
+import { validateImportData, importMoyinProject } from "@/lib/script/import-service";
 
 export function Dashboard() {
   const { projects, createProject, deleteProject, renameProject } = useProjectStore();
@@ -80,6 +82,47 @@ export function Dashboard() {
       setActiveTab("script");
     }
   };
+
+  const handleImportProject = useCallback(async () => {
+    const processJsonContent = async (content: string) => {
+      const raw = JSON.parse(content);
+      const validated = validateImportData(raw);
+      const importResult = importMoyinProject(validated);
+
+      toast.success(
+        `导入成功：${importResult.characterCount} 角色, ${importResult.sceneCount} 场景, ${importResult.episodeCount} 集, ${importResult.shotCount} 分镜`
+      );
+      await switchProject(importResult.projectId);
+      setActiveTab("script");
+    };
+
+    try {
+      const electronAPI = (window as any).electronAPI;
+      if (electronAPI?.openJsonFileDialog) {
+        const result = await electronAPI.openJsonFileDialog();
+        if (!result) return;
+        await processJsonContent(result.content);
+      } else {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".json,application/json";
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          try {
+            const content = await file.text();
+            await processJsonContent(content);
+          } catch (err: any) {
+            toast.error(`导入失败: ${err.message}`);
+          }
+        };
+        input.click();
+        return;
+      }
+    } catch (err: any) {
+      toast.error(`导入失败: ${err.message}`);
+    }
+  }, [setActiveTab]);
 
   const handleOpenProject = async (projectId: string) => {
     if (selectionMode) return; // Don't open in selection mode
@@ -298,6 +341,14 @@ export function Dashboard() {
               {selectionMode ? "退出选择" : "管理"}
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImportProject}
+          >
+            <Upload className="w-4 h-4 mr-1.5" />
+            导入 MCP 项目
+          </Button>
           <Button
             onClick={() => setShowNewProject(true)}
             className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium"

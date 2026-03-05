@@ -185,16 +185,13 @@ export function GenerationPanel({ selectedCharacter, onCharacterCreated }: Gener
       setAppearance(pendingCharacterData.appearance || "");
       setRelationships(pendingCharacterData.relationships || "");
       
-      // Also build description for display/generation prompt
-      const descParts: string[] = [];
-      if (pendingCharacterData.role) descParts.push(`【身份/背景】\n${pendingCharacterData.role}`);
-      if (pendingCharacterData.traits) descParts.push(`【核心特质】\n${pendingCharacterData.traits}`);
-      if (pendingCharacterData.skills) descParts.push(`【技能/能力】\n${pendingCharacterData.skills}`);
-      if (pendingCharacterData.keyActions) descParts.push(`【关键事迹】\n${pendingCharacterData.keyActions}`);
-      if (pendingCharacterData.appearance) descParts.push(`【外貌特征】\n${pendingCharacterData.appearance}`);
-      if (pendingCharacterData.relationships) descParts.push(`【人物关系】\n${pendingCharacterData.relationships}`);
-      if (descParts.length > 0) {
-        setDescription(descParts.join("\n\n"));
+      // description 仅包含视觉相关信息，避免叙事背景污染生图 prompt
+      const visualParts: string[] = [];
+      if (pendingCharacterData.appearance) visualParts.push(pendingCharacterData.appearance);
+      if (pendingCharacterData.gender) visualParts.push(pendingCharacterData.gender);
+      if (pendingCharacterData.age) visualParts.push(pendingCharacterData.age);
+      if (visualParts.length > 0) {
+        setDescription(visualParts.join(', '));
       }
 
       // 处理标签和备注
@@ -368,9 +365,10 @@ export function GenerationPanel({ selectedCharacter, onCharacterCreated }: Gener
         styleId, 
         visualPromptEn,
         identityAnchors,
-        referenceImages.length > 0,  // 有参考图时简化描述
+        referenceImages.length > 0,
         storyYear,
-        era
+        era,
+        visualPromptZh,
       );
       const stylePreset = styleId && styleId !== 'random' 
         ? getStyleById(styleId) 
@@ -1218,8 +1216,8 @@ function buildPromptFromAnchors(
  * 优先级：
  * 1. 有参考图 + 有锚点：简化描述 + 最强锚点
  * 2. 无参考图 + 有锚点：完整6层锁定
- * 3. 有visualPromptEn：使用AI大师生成的提示词
- * 4. 只有description：使用基础描述
+ * 3. 有 visualPromptEn / visualPromptZh：使用AI大师生成的视觉提示词
+ * 4. 只有 description：使用基础外貌描述
  * 5. 年代信息：加入服装风格锚点
  */
 function buildCharacterSheetPrompt(
@@ -1231,7 +1229,8 @@ function buildCharacterSheetPrompt(
   identityAnchors?: CharacterIdentityAnchors,
   hasReferenceImages?: boolean,
   storyYear?: number,
-  era?: string
+  era?: string,
+  visualPromptZh?: string,
 ): string {
   const stylePreset = styleId && styleId !== 'random' 
     ? getStyleById(styleId) 
@@ -1260,24 +1259,28 @@ function buildCharacterSheetPrompt(
   }
   
   // 构建角色描述：根据有无参考图决定使用完整锚点还是简化锚点
+  // 优先级：visualPromptEn > visualPromptZh > description
   let characterDescription = '';
+  const bestVisualPrompt = visualPromptEn || visualPromptZh || '';
   
   // 构建身份锚点提示词
   const anchorPrompt = buildPromptFromAnchors(identityAnchors, hasReferenceImages || false);
   
   if (hasReferenceImages) {
     // 有参考图：简化描述，让参考图引导主要特征
-    const basicDesc = visualPromptEn ? visualPromptEn.split(',').slice(0, 3).join(',') : description.substring(0, 100);
+    const basicDesc = bestVisualPrompt
+      ? bestVisualPrompt.split(/[,，]/).slice(0, 3).join(',')
+      : description.substring(0, 100);
     characterDescription = anchorPrompt 
       ? `${basicDesc}, ${anchorPrompt}` 
       : basicDesc;
   } else if (anchorPrompt) {
     // 无参考图 + 有锚点：完整6层锁定
-    const baseDesc = visualPromptEn || description;
+    const baseDesc = bestVisualPrompt || description;
     characterDescription = `${baseDesc}, ${anchorPrompt}`;
-  } else if (visualPromptEn) {
-    // 只有AI大师提示词
-    characterDescription = visualPromptEn;
+  } else if (bestVisualPrompt) {
+    // 有视觉提示词（英文或中文）
+    characterDescription = bestVisualPrompt;
   } else {
     // 只有基础描述
     characterDescription = description;

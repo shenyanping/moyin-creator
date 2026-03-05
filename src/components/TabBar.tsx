@@ -10,11 +10,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ChevronLeft, LayoutDashboard, Settings, Sun, Moon, HelpCircle } from "lucide-react";
+import { ChevronLeft, LayoutDashboard, Settings, Sun, Moon, HelpCircle, MessageSquare } from "lucide-react";
+import { useAssistantStore } from "@/stores/assistant-store";
 
 export function TabBar() {
   const { activeTab, inProject, setActiveTab, setInProject } = useMediaPanelStore();
   const { theme, toggleTheme } = useThemeStore();
+  const toggleAssistant = useAssistantStore((s) => s.toggle);
+  const assistantOpen = useAssistantStore((s) => s.isOpen);
 
   // Dashboard mode
   if (!inProject) {
@@ -47,8 +50,25 @@ export function TabBar() {
             </Tooltip>
           </TooltipProvider>
         </nav>
-        {/* Bottom: Help + Settings + Theme */}
+        {/* Bottom: AI Assistant + Help + Settings + Theme */}
         <div className="mt-auto border-t border-border py-1">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleAssistant}
+                  className={cn(
+                    "w-full flex flex-col items-center py-2 transition-colors",
+                    assistantOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="text-[8px]">AI助手</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">AI 编辑助手</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -159,8 +179,25 @@ export function TabBar() {
         })}
       </nav>
 
-      {/* Bottom: Help + Settings + Theme */}
+      {/* Bottom: AI Assistant + Help + Settings + Theme */}
       <div className="mt-auto border-t border-border py-1">
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleAssistant}
+                className={cn(
+                  "w-full flex flex-col items-center py-2 transition-colors",
+                  assistantOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span className="text-[8px]">AI助手</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">AI 编辑助手</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>

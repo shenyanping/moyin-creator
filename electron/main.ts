@@ -20,7 +20,7 @@ import os from 'node:os'
 //
 process.env.APP_ROOT = path.join(__dirname, '../..')
 
-export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+export const VITE_DEV_SERVER_URL = process.env['ELECTRON_RENDERER_URL'] || process.env['VITE_DEV_SERVER_URL']
 export const MAIN_DIST = path.join(__dirname)
 export const RENDERER_DIST = path.join(__dirname, '../renderer')
 
@@ -950,6 +950,21 @@ ipcMain.handle('storage-update-config', async (_event, config: { autoCleanEnable
   saveStorageConfig()
   scheduleAutoClean()
   return true
+})
+
+// ==================== File Import (Open Dialog) ====================
+ipcMain.handle('open-json-file-dialog', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+  })
+  if (result.canceled || !result.filePaths[0]) return null
+  try {
+    const content = fs.readFileSync(result.filePaths[0], 'utf-8')
+    return { filePath: result.filePaths[0], content }
+  } catch (err) {
+    return null
+  }
 })
 
 // ==================== File Export (Save Dialog) ====================
