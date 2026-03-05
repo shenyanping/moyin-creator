@@ -13,6 +13,7 @@ import { useMemo, useRef } from "react";
 import type { Shot, ScriptScene, ScriptData } from "@/types/script";
 import { cn } from "@/lib/utils";
 import { Camera, MapPin, Clock, MessageSquare, Film } from "lucide-react";
+import { getShotSizeLabel } from "@/lib/script/shot-utils";
 
 interface ShotBreakdownProps {
   shots: Shot[];
@@ -171,7 +172,7 @@ function ShotRow({ shot, isSelected, onClick }: ShotRowProps) {
           </span>
           {shot.shotSize && (
             <span className="text-[10px] font-mono text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded">
-              {shot.shotSize}
+              {getShotSizeLabel(shot.shotSize)}
             </span>
           )}
           {shot.cameraMovement && (

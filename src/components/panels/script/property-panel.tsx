@@ -10,7 +10,8 @@
 
 import { useState, useEffect } from "react";
 import type { ScriptCharacter, ScriptScene, Shot, CompletionStatus, Episode, EpisodeRawScript } from "@/types/script";
-import { getShotCompletionStatus } from "@/lib/script/shot-utils";
+import { getShotCompletionStatus, getShotSizeLabel } from "@/lib/script/shot-utils";
+import { SHOT_SIZE_PRESETS } from "@/stores/director-presets";
 import { useActiveScriptProject } from "@/stores/script-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -702,6 +703,7 @@ export function PropertyPanel({
         shotSize: shot.shotSize || "",
         cameraMovement: shot.cameraMovement || "none",
         specialTechnique: shot.specialTechnique || "none",
+        characterIds: [...(shot.characterIds || [])],
       });
     }
     setIsEditing(true);
@@ -713,7 +715,14 @@ export function PropertyPanel({
     } else if (selectedItemType === "scene" && scene) {
       onUpdateScene?.(scene.id, editData);
     } else if (selectedItemType === "shot" && shot) {
-      onUpdateShot?.(shot.id, editData as any);
+      const shotUpdates = { ...editData };
+      if (shotUpdates.characterIds) {
+        const allChars = scriptProject?.scriptData?.characters || [];
+        shotUpdates.characterNames = (shotUpdates.characterIds as string[]).map(
+          (id: string) => allChars.find((c) => c.id === id)?.name || id
+        );
+      }
+      onUpdateShot?.(shot.id, shotUpdates as any);
     }
     setIsEditing(false);
   };
@@ -1447,7 +1456,14 @@ export function PropertyPanel({
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs">景别</Label>
-                  <Input value={editData.shotSize || ""} onChange={(e) => setEditData({ ...editData, shotSize: e.target.value })} className="h-8" placeholder="如：WS/MS/CU/ECU" />
+                  <Select value={editData.shotSize || ''} onValueChange={(v) => setEditData({ ...editData, shotSize: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择景别" /></SelectTrigger>
+                    <SelectContent>
+                      {SHOT_SIZE_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.abbr} className="text-xs">{p.label}（{p.abbr}）</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">镜头运动</Label>
@@ -1480,6 +1496,38 @@ export function PropertyPanel({
                 <Label className="text-xs">对白</Label>
                 <Textarea value={editData.dialogue || ""} onChange={(e) => setEditData({ ...editData, dialogue: e.target.value })} className="min-h-[60px]" />
               </div>
+              {/* 出场角色多选 */}
+              <div className="space-y-1">
+                <Label className="text-xs">出场角色</Label>
+                <div className="flex flex-wrap gap-1.5 p-2 border rounded-lg bg-background min-h-[36px]">
+                  {(scriptProject?.scriptData?.characters || []).map((c) => {
+                    const selected = (editData.characterIds as string[] || []).includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          const current: string[] = editData.characterIds as string[] || [];
+                          const next = selected
+                            ? current.filter((id: string) => id !== c.id)
+                            : [...current, c.id];
+                          setEditData({ ...editData, characterIds: next });
+                        }}
+                        className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                          selected
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                  {(scriptProject?.scriptData?.characters || []).length === 0 && (
+                    <span className="text-xs text-muted-foreground">暂无角色</span>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -1487,7 +1535,7 @@ export function PropertyPanel({
               <div className="flex items-center gap-2 flex-wrap">
                 {shot.shotSize && (
                   <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-medium">
-                    {shot.shotSize}
+                    {getShotSizeLabel(shot.shotSize)}
                   </span>
                 )}
                 {shot.cameraMovement && shot.cameraMovement !== 'none' && (

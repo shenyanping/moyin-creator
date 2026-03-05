@@ -13,6 +13,7 @@ import { useScriptStore } from "@/stores/script-store";
 import { useCharacterLibraryStore, type Character, type CharacterVariation } from "@/stores/character-library-store";
 import { getFeatureConfig, getFeatureNotConfiguredMessage } from "@/lib/ai/feature-router";
 import { generateShotImage, generateShotVideo, batchGenerateShotImages } from "@/lib/script/shot-generator";
+import { getShotSizeLabel } from "@/lib/script/shot-utils";
 import type { Shot } from "@/types/script";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -387,7 +388,7 @@ function ShotCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">镜头 {shot.index}</span>
-            <span className="text-xs text-muted-foreground">{shot.shotSize}</span>
+            <span className="text-xs text-muted-foreground">{getShotSizeLabel(shot.shotSize)}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
             {shot.actionSummary}

@@ -52,3 +52,22 @@ export function normalizeShotSize(shotSize: string | undefined | null): ShotSize
   if (!shotSize) return null;
   return (SHOT_SIZE_MAP[shotSize] || null) as ShotSizeType | null;
 }
+
+const SHOT_SIZE_LABEL: Record<string, string> = {
+  'ecu': '特写', 'ECU': '特写',
+  'cu': '近景', 'CU': '近景',
+  'mcu': '中近景', 'MCU': '中近景',
+  'ms': '中景', 'MS': '中景',
+  'mls': '中远景', 'MLS': '中远景',
+  'ls': '全景', 'LS': '全景',
+  'ws': '远景', 'WS': '远景',
+  'pov': '主观镜头', 'POV': '主观镜头',
+};
+
+/**
+ * 获取景别的中文显示名。支持预设 ID（ws）和缩写（WS）两种格式。
+ */
+export function getShotSizeLabel(shotSize: string | undefined | null): string {
+  if (!shotSize) return '';
+  return SHOT_SIZE_LABEL[shotSize] || shotSize;
+}
