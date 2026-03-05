@@ -1,7 +1,6 @@
 <p align="center">
   <img src="build/icon.png" width="120" alt="魔因漫创 Logo" />
 </p>
-
 <h1 align="center">魔因漫创 Moyin Creator</h1>
 
 <p align="center">
@@ -51,7 +50,7 @@
 
 ## 功能特性
 
-### ⭐ S级板块 — Seedance 2.0 多模态创作
+### ⭐ S级板块 — Seedance 2.0 多模态创作 SkyReels-V4 多模态创作
 - **多镜头合并叙事视频生成**：将多个分镜分组合并生成连贯叙事视频
 - 支持 @Image / @Video / @Audio 多模态引用（角色参考图、场景图、首帧图自动收集）
 - 智能提示词构建：自动三层融合（动作 + 镜头语言 + 对白唇形同步）
@@ -188,13 +187,20 @@ moyin-creator/
 
 ### 联系我们
 
-<img src="https://github.com/user-attachments/assets/85a9cbf6-754d-4d4d-9b0e-6feab9e8eec3" width="200" alt="交流群" />
+<img src="https://github.com/user-attachments/assets/245013d3-2515-43dd-8ccf-cac95f89df86" width="200" alt="交流群" />
+
 <img src="docs/images/wechat-contact.png" width="200" alt="微信联系" />
 
 
 ---
 
 <p align="center">Made with ❤️ by <a href="https://github.com/MemeCalculate">MemeCalculate</a></p>
+
+
+
+
+
+
 
 
 
