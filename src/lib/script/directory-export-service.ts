@@ -5,6 +5,7 @@
 import { useScriptStore } from '@/stores/script-store';
 import { initProjectDirectory } from './directory-import-service';
 import { CURSOR_RULES_CONTENT } from './cursor-rules-template';
+import { VALIDATE_SCRIPT_CONTENT } from './validate-script-template';
 
 interface FsApi {
   writeFile: (path: string, content: string) => Promise<void>;
@@ -180,6 +181,10 @@ export async function exportProjectToDirectory(
     await fs.writeFile(`${dirPath}/metadata.md`, project.metadataMarkdown);
     fileCount++;
   }
+
+  // validate.js — 数据校验脚本
+  await fs.writeFile(`${dirPath}/validate.js`, VALIDATE_SCRIPT_CONTENT);
+  fileCount++;
 
   return { fileCount };
 }

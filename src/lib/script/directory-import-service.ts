@@ -9,6 +9,7 @@ import { useScriptStore } from '@/stores/script-store';
 import { useCharacterLibraryStore } from '@/stores/character-library-store';
 import { useSceneStore } from '@/stores/scene-store';
 import { CURSOR_RULES_CONTENT } from './cursor-rules-template';
+import { VALIDATE_SCRIPT_CONTENT } from './validate-script-template';
 
 export interface DirectoryProject {
   project: Record<string, unknown>;
@@ -54,8 +55,9 @@ export async function initProjectDirectory(dirPath: string, projectName: string)
     await fs.mkdir(`${dirPath}/${sub}`);
   }
 
-  // 写入 Cursor 规则文件
+  // 写入 Cursor 规则文件和验证脚本
   await fs.writeFile(`${dirPath}/.cursor/rules/moyin-project.mdc`, CURSOR_RULES_CONTENT);
+  await fs.writeFile(`${dirPath}/validate.js`, VALIDATE_SCRIPT_CONTENT);
 
   // 写入初始 project.json
   const hasProject = await fs.exists(`${dirPath}/project.json`);
