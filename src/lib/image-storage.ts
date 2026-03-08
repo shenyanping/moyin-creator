@@ -187,7 +187,6 @@ export async function saveVideoToLocal(
   url: string, 
   filename: string = 'video.mp4'
 ): Promise<string> {
-  // If not in Electron or already local, return as-is
   if (!isElectron() || url.startsWith('local-image://') || url.startsWith('data:')) {
     return url;
   }
@@ -197,6 +196,10 @@ export async function saveVideoToLocal(
     
     if (result.success && result.localPath) {
       console.log(`Video saved locally: ${result.localPath}`);
+      // Copy to linked project directory (non-blocking, dynamic import to avoid circular deps)
+      import('@/lib/utils/media-directory-sync').then(({ syncMediaToDirectory }) => {
+        syncMediaToDirectory(result.localPath!, filename, 'videos').catch(() => {});
+      }).catch(() => {});
       return result.localPath;
     } else {
       console.error('Failed to save video:', result.error);

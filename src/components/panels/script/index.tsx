@@ -18,6 +18,7 @@ import { useAPIConfigStore } from "@/stores/api-config-store";
 import { getFeatureConfig, getFeatureNotConfiguredMessage } from "@/lib/ai/feature-router";
 import { useCharacterLibraryStore } from "@/stores/character-library-store";
 import { useMediaPanelStore } from "@/stores/media-panel-store";
+import { useAssistantStore } from "@/stores/assistant-store";
 import { parseScript, generateShotList, generateScriptFromIdea } from "@/lib/script/script-parser";
 import { 
   importFullScript, 
@@ -213,6 +214,14 @@ export function ScriptView() {
     (id: string, type: "character" | "scene" | "shot" | "episode") => {
       setSelectedItemId(id);
       setSelectedItemType(type);
+    },
+    []
+  );
+
+  const handleSelectScene = useCallback(
+    (sceneId: string) => {
+      setSelectedItemId(sceneId);
+      setSelectedItemType("scene");
     },
     []
   );
@@ -570,7 +579,9 @@ export function ScriptView() {
     
     addSecondPass('shots');
     setViewpointAnalysisStatus('analyzing');
-    toast.info(`正在校准第 ${episodeIndex} 集的分镜...`);
+
+    const { addSystemNotice, updateAssistantMessage } = useAssistantStore.getState();
+    const msgId = addSystemNotice(`⏳ 正在校准第 ${episodeIndex} 集的分镜...`);
     
     try {
       const result = await calibrateEpisodeShots(
@@ -578,21 +589,26 @@ export function ScriptView() {
         projectId,
         {
           apiKey: featureConfig.allApiKeys.join(','),
-          provider: featureConfig.platform,  // 直接用设置里的platform
+          provider: featureConfig.platform,
           baseUrl: featureConfig.baseUrl,
-          model: featureConfig.models?.[0],  // 使用配置的第一个模型
+          model: featureConfig.models?.[0],
           styleId,
           cinematographyProfileId: directorProject?.cinematographyProfileId || DEFAULT_CINEMATOGRAPHY_PROFILE_ID,
           promptLanguage,
         },
         (current, total, msg) => {
-          console.log(`[ScriptView] Shot Calibration: ${msg}`);
+          updateAssistantMessage(msgId, {
+            content: `⏳ 第 ${episodeIndex} 集分镜校准中... (${current}/${total})\n${msg}`,
+          });
         }
       );
       
       if (result.success) {
         setViewpointAnalysisStatus('completed');
         removeSecondPass('shots');
+        updateAssistantMessage(msgId, {
+          content: `✅ 第 ${episodeIndex} 集分镜校准完成！已优化 ${result.calibratedCount}/${result.totalShots} 个分镜\n\n校准内容包括：叙事骨架、视觉描述、拍摄控制、首帧提示词、动态+尾帧提示词，同时修正了出场角色关联。`,
+        });
         toast.success(`分镜校准完成！已优化 ${result.calibratedCount}/${result.totalShots} 个分镜`);
       } else {
         throw new Error(result.error || '分镜校准失败');
@@ -602,6 +618,9 @@ export function ScriptView() {
       console.error("[ScriptView] Shot calibration failed:", err);
       setViewpointAnalysisStatus('error');
       removeSecondPass('shots');
+      updateAssistantMessage(msgId, {
+        content: `❌ 第 ${episodeIndex} 集分镜校准失败: ${err.message}`,
+      });
       toast.error(`分镜校准失败: ${err.message}`);
     }
   }, [projectId, styleId, promptLanguage, directorProject?.cinematographyProfileId, addSecondPass, removeSecondPass]);
@@ -626,7 +645,9 @@ export function ScriptView() {
 
     addSecondPass('shots');
     setViewpointAnalysisStatus('analyzing');
-    toast.info(`正在校准「${sceneName}」的分镜...`);
+
+    const { addSystemNotice, updateAssistantMessage } = useAssistantStore.getState();
+    const msgId = addSystemNotice(`⏳ 正在校准「${sceneName}」的分镜...`);
 
     try {
       const result = await calibrateEpisodeShots(
@@ -642,7 +663,9 @@ export function ScriptView() {
           promptLanguage,
         },
         (current, total, msg) => {
-          console.log(`[ScriptView] Scene Shot Calibration: ${msg}`);
+          updateAssistantMessage(msgId, {
+            content: `⏳ 「${sceneName}」分镜校准中... (${current}/${total})\n${msg}`,
+          });
         },
         sceneId,
       );
@@ -650,6 +673,9 @@ export function ScriptView() {
       if (result.success) {
         setViewpointAnalysisStatus('completed');
         removeSecondPass('shots');
+        updateAssistantMessage(msgId, {
+          content: `✅ 「${sceneName}」分镜校准完成！已优化 ${result.calibratedCount}/${result.totalShots} 个分镜\n\n校准内容包括：叙事骨架、视觉描述、拍摄控制、首帧提示词、动态+尾帧提示词，同时修正了出场角色关联。`,
+        });
         toast.success(`「${sceneName}」分镜校准完成！已优化 ${result.calibratedCount}/${result.totalShots} 个分镜`);
       } else {
         throw new Error(result.error || '分镜校准失败');
@@ -659,6 +685,9 @@ export function ScriptView() {
       console.error("[ScriptView] Scene shot calibration failed:", err);
       setViewpointAnalysisStatus('error');
       removeSecondPass('shots');
+      updateAssistantMessage(msgId, {
+        content: `❌ 「${sceneName}」分镜校准失败: ${err.message}`,
+      });
       toast.error(`分镜校准失败: ${err.message}`);
     }
   }, [projectId, scriptData, styleId, promptLanguage, directorProject?.cinematographyProfileId, addSecondPass, removeSecondPass]);
@@ -681,7 +710,10 @@ export function ScriptView() {
       return;
     }
     
-    toast.info(`正在校准分镜: ${shot.actionSummary?.slice(0, 20)}...`);
+    const shotDesc = shot.actionSummary?.slice(0, 20) || `#${shot.index}`;
+
+    const { addSystemNotice, updateAssistantMessage } = useAssistantStore.getState();
+    const msgId = addSystemNotice(`⏳ 正在校准分镜: ${shotDesc}...`);
     
     try {
       const result = await calibrateSingleShot(
@@ -697,12 +729,17 @@ export function ScriptView() {
           promptLanguage,
         },
         (msg: string) => {
-          console.log(`[ScriptView] Single Shot Calibration: ${msg}`);
+          updateAssistantMessage(msgId, {
+            content: `⏳ 分镜校准中: ${shotDesc}\n${msg}`,
+          });
         }
       );
       
       if (result.success) {
         setSingleShotCalibrationStatus(prev => ({ ...prev, [shotId]: 'completed' }));
+        updateAssistantMessage(msgId, {
+          content: `✅ 分镜「${shotDesc}」校准完成！\n\n已优化：叙事骨架、视觉描述、拍摄控制、提示词生成，同时修正了出场角色关联。`,
+        });
         toast.success(`分镜校准完成！`);
       } else {
         throw new Error(result.error || '分镜校准失败');
@@ -711,6 +748,9 @@ export function ScriptView() {
       const err = error as Error;
       console.error("[ScriptView] Single shot calibration failed:", err);
       setSingleShotCalibrationStatus(prev => ({ ...prev, [shotId]: 'error' }));
+      updateAssistantMessage(msgId, {
+        content: `❌ 分镜「${shotDesc}」校准失败: ${err.message}`,
+      });
       toast.error(`分镜校准失败: ${err.message}`);
     }
   }, [projectId, styleId, promptLanguage, shots, directorProject?.cinematographyProfileId]);
@@ -1279,7 +1319,6 @@ export function ScriptView() {
   // 跳转到角色库（传递数据到生成控制台）
   const handleGoToCharacterLibrary = useCallback(
     (characterId: string) => {
-      // 查找角色数据
       const character = scriptData?.characters.find((c) => c.id === characterId);
       if (!character) {
         setActiveTab("characters");
@@ -1287,20 +1326,11 @@ export function ScriptView() {
         return;
       }
 
-      // 检查是否已关联角色库
-      if (character.characterLibraryId) {
-        // 已关联，直接跳转并选中
-        selectLibraryCharacter(character.characterLibraryId);
-        setActiveTab("characters");
-        toast.info(`已跳转到角色库，选中「${character.name}」`);
-        return;
-      }
-
-      // 传递角色数据到角色库生成控制台（包含世界级大师生成的视觉提示词）
-      // 获取剧本元数据中的年代信息
+      const charStore = useCharacterLibraryStore.getState();
       const background = scriptProject?.projectBackground;
-      
-      goToCharacterWithData({
+
+      // 构建角色数据（无论是否已关联都需要）
+      const charData = {
         name: character.name,
         gender: character.gender,
         age: character.age,
@@ -1314,23 +1344,49 @@ export function ScriptView() {
         tags: character.tags,
         notes: character.notes,
         styleId,
-        // === 专业角色设计字段（世界级大师生成）===
         visualPromptEn: character.visualPromptEn,
         visualPromptZh: character.visualPromptZh,
-        // === 6层身份锚点（角色一致性）===
         identityAnchors: character.identityAnchors,
         negativePrompt: character.negativePrompt,
-        // === 多阶段角色支持 ===
         stageInfo: character.stageInfo,
         consistencyElements: character.consistencyElements,
-        // === 年代信息（从剧本元数据传递）===
         storyYear: background?.storyStartYear,
         era: background?.era || background?.timelineSetting,
-      });
+      };
+
+      if (character.characterLibraryId) {
+        const libChar = charStore.characters.find((c) => c.id === character.characterLibraryId);
+        if (libChar) {
+          // 先导航到角色所在文件夹（确保卡片可见）
+          if (libChar.folderId) charStore.setCurrentFolder(libChar.folderId);
+          selectLibraryCharacter(character.characterLibraryId);
+
+          if (libChar.views.length > 0) {
+            setActiveTab("characters");
+            toast.info(`已跳转到角色库，选中「${character.name}」`);
+            return;
+          }
+        }
+      }
+
+      // 无关联、或有关联但没图片：传递数据到生成控制台
+      goToCharacterWithData(charData);
+
+      // goToCharacterWithData 会切换 tab，但不设置文件夹
+      // 延迟一帧再设置文件夹，确保角色卡片在正确的文件夹视图中可见
+      if (character.characterLibraryId) {
+        const libChar = charStore.characters.find((c) => c.id === character.characterLibraryId);
+        if (libChar?.folderId) {
+          setTimeout(() => {
+            charStore.setCurrentFolder(libChar.folderId!);
+            selectLibraryCharacter(character.characterLibraryId!);
+          }, 50);
+        }
+      }
 
       toast.success(`已跳转到角色库，角色「${character.name}」信息已填充到生成控制台`);
     },
-    [scriptData, styleId, setActiveTab, selectLibraryCharacter, goToCharacterWithData]
+    [scriptData, styleId, setActiveTab, selectLibraryCharacter, goToCharacterWithData, scriptProject]
   );
 
   // 获取当前风格的 tokens（从统一风格库导入）
@@ -2155,6 +2211,7 @@ export function ScriptView() {
             stageAnalysisStatus={stageAnalysisStatus}
             suggestMultiStage={suggestMultiStage}
             multiStageHints={multiStageHints}
+            onSelectScene={handleSelectScene}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

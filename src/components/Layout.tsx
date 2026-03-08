@@ -25,9 +25,13 @@ import { MediaView } from "@/components/panels/media";
 import { SettingsPanel } from "@/components/panels/SettingsPanel";
 import { ExportView } from "@/components/panels/export";
 import { AssistantPanel } from "@/components/ai-assistant/AssistantPanel";
+import { useDirectorySync } from "@/hooks/use-directory-sync";
+import { useDirectoryWriteback } from "@/hooks/use-directory-writeback";
 
 export function Layout() {
   const { activeTab, inProject } = useMediaPanelStore();
+  useDirectorySync();
+  useDirectoryWriteback();
 
   // Dashboard mode - show full-screen dashboard or settings
   if (!inProject) {

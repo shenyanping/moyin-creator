@@ -9,6 +9,7 @@
 
 import { saveImageToLocal, type ImageCategory } from '@/lib/image-storage';
 import { uploadToImageHost, isImageHostConfigured } from '@/lib/image-host';
+import { syncMediaToDirectory, extractFilenameFromLocalPath } from '@/lib/utils/media-directory-sync';
 
 export interface PersistResult {
   /** local-image:// path for state storage */
@@ -49,16 +50,17 @@ export async function persistSceneImage(
   const timestamp = Date.now();
   const filename = `scene_${sceneId}_${frameType}_${timestamp}.png`;
 
-  // Save to local filesystem (returns local-image:// or original URL as fallback)
   const localPath = await saveImageToLocal(imageData, category, filename);
 
-  // Optionally upload to image host (non-blocking, best-effort)
+  // Copy to linked project directory (non-blocking)
+  syncMediaToDirectory(localPath, filename, 'images').catch(() => {});
+
   let httpUrl: string | null = null;
   if (isImageHostConfigured()) {
     try {
       const result = await uploadToImageHost(imageData, {
         name: filename,
-        expiration: 15552000, // 180 days
+        expiration: 15552000,
       });
       if (result.success && result.url) {
         httpUrl = result.url;
@@ -92,6 +94,9 @@ export async function persistReferenceImage(
   const filename = `ref_${label}_${timestamp}.png`;
 
   const localPath = await saveImageToLocal(imageData, category, filename);
+
+  // Copy to linked project directory (non-blocking)
+  syncMediaToDirectory(localPath, filename, 'images').catch(() => {});
 
   let httpUrl: string | null = null;
   if (isImageHostConfigured()) {

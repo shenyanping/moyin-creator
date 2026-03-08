@@ -13,6 +13,7 @@ import type { ScriptCharacter, ScriptScene, Shot, CompletionStatus, Episode, Epi
 import { getShotCompletionStatus, getShotSizeLabel } from "@/lib/script/shot-utils";
 import { SHOT_SIZE_PRESETS } from "@/stores/director-presets";
 import { useActiveScriptProject } from "@/stores/script-store";
+import { useCharacterLibraryStore } from "@/stores/character-library-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -115,6 +116,8 @@ interface PropertyPanelProps {
   stageAnalysisStatus?: 'idle' | 'analyzing' | 'completed' | 'error';
   suggestMultiStage?: boolean;
   multiStageHints?: string[];
+  // 场景跳转
+  onSelectScene?: (sceneId: string) => void;
 }
 
 export function PropertyPanel({
@@ -142,6 +145,7 @@ export function PropertyPanel({
   stageAnalysisStatus,
   suggestMultiStage,
   multiStageHints,
+  onSelectScene,
 }: PropertyPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -704,6 +708,7 @@ export function PropertyPanel({
         cameraMovement: shot.cameraMovement || "none",
         specialTechnique: shot.specialTechnique || "none",
         characterIds: [...(shot.characterIds || [])],
+        sceneRefId: shot.sceneRefId || "",
       });
     }
     setIsEditing(true);
@@ -1063,13 +1068,10 @@ export function PropertyPanel({
               </div>
             ) : (
               /* 普通角色或阶段角色：显示生成按钮 */
-              <Button
-                className="w-full"
-                onClick={() => onGoToCharacterLibrary?.(character.id)}
-              >
-                <ArrowRight className="h-4 w-4 mr-2" />
-                {character.characterLibraryId ? '查看角色库形象' : '去角色库生成形象'}
-              </Button>
+              <CharacterLibraryButton
+                characterLibraryId={character.characterLibraryId}
+                onGoTo={() => onGoToCharacterLibrary?.(character.id)}
+              />
             )}
             
             <Button
@@ -1496,6 +1498,25 @@ export function PropertyPanel({
                 <Label className="text-xs">对白</Label>
                 <Textarea value={editData.dialogue || ""} onChange={(e) => setEditData({ ...editData, dialogue: e.target.value })} className="min-h-[60px]" />
               </div>
+              {/* 关联场景选择 */}
+              <div className="space-y-1">
+                <Label className="text-xs">关联场景</Label>
+                <Select
+                  value={editData.sceneRefId as string || ""}
+                  onValueChange={(v) => setEditData({ ...editData, sceneRefId: v })}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="选择关联场景" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(scriptProject?.scriptData?.scenes || []).map((sc) => (
+                      <SelectItem key={sc.id} value={sc.id} className="text-xs">
+                        {sc.name || sc.location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {/* 出场角色多选 */}
               <div className="space-y-1">
                 <Label className="text-xs">出场角色</Label>
@@ -1600,6 +1621,26 @@ export function PropertyPanel({
                   )}
                 </div>
               )}
+
+              {/* 关联场景 */}
+              {(() => {
+                const linkedScene = shot.sceneRefId
+                  ? scriptProject?.scriptData?.scenes?.find(s => s.id === shot.sceneRefId)
+                  : undefined;
+                if (!linkedScene) return null;
+                return (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">关联场景</div>
+                    <button
+                      className="px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-xs hover:bg-blue-500/20 transition-colors"
+                      onClick={() => onSelectScene?.(linkedScene.id)}
+                    >
+                      <MapPin className="inline h-3 w-3 mr-0.5 -mt-0.5" />
+                      {linkedScene.name || linkedScene.location}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* 出场角色 */}
               {shot.characterNames && shot.characterNames.length > 0 && (
@@ -1728,4 +1769,27 @@ export function PropertyPanel({
   }
 
   return null;
+}
+
+function CharacterLibraryButton({
+  characterLibraryId,
+  onGoTo,
+}: {
+  characterLibraryId?: string;
+  onGoTo: () => void;
+}) {
+  const hasImage = useCharacterLibraryStore((s) => {
+    if (!characterLibraryId) return false;
+    const char = s.characters.find((c) => c.id === characterLibraryId);
+    return char ? char.views.length > 0 : false;
+  });
+
+  const label = hasImage ? '查看角色库形象' : '去角色库生成形象';
+
+  return (
+    <Button className="w-full" onClick={onGoTo}>
+      <ArrowRight className="h-4 w-4 mr-2" />
+      {label}
+    </Button>
+  );
 }

@@ -42,10 +42,12 @@ export function AssistantPanel() {
   const [revertDialogOpen, setRevertDialogOpen] = useState(false);
   const [pendingAppliedSuggestions, setPendingAppliedSuggestions] = useState<EditSuggestion[]>([]);
 
+  const prevMessageCountRef = useRef(messages.length);
   useEffect(() => {
-    if (scrollRef.current) {
+    if (messages.length !== prevMessageCountRef.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+    prevMessageCountRef.current = messages.length;
   }, [messages]);
 
   useEffect(() => {

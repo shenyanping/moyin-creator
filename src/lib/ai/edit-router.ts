@@ -9,7 +9,7 @@ import type { ScriptCharacter, ScriptScene, Episode } from '@/types/script';
 
 export interface AIEditInstruction {
   action?: 'edit' | 'add';
-  targetType: 'character' | 'scene' | 'episode';
+  targetType: 'character' | 'scene' | 'episode' | 'shot';
   targetId: string;
   targetName: string;
   changes: Record<string, unknown>;
@@ -151,6 +151,8 @@ function resolveCurrentData(
       return (ctx.scenes.find((s) => s.id === id) || null) as any;
     case 'episode':
       return (ctx.episodes.find((e) => e.id === id) || null) as any;
+    case 'shot':
+      return (ctx.shots.find((s) => s.id === id) || null) as any;
     default:
       return null;
   }
@@ -229,6 +231,9 @@ function revertEditSnapshot(snapshot: EditSnapshot): boolean {
     case 'episode':
       store.updateEpisode(projectId, targetId, previousData as any);
       return true;
+    case 'shot':
+      store.updateShot(projectId, targetId, previousData as any);
+      return true;
     default:
       return false;
   }
@@ -282,6 +287,9 @@ function captureEditPreviousData(
     case 'episode':
       entity = (project?.scriptData?.episodes.find((e) => e.id === suggestion.targetId) || null) as any;
       break;
+    case 'shot':
+      entity = (project?.shots?.find((s) => s.id === suggestion.targetId) || null) as any;
+      break;
   }
 
   if (entity) {
@@ -324,6 +332,11 @@ function applyEditSuggestion(
     case 'episode': {
       store.updateEpisode(projectId, suggestion.targetId, updates as any);
       console.log('[EditRouter] Episode updated:', suggestion.targetId, 'project:', projectId);
+      return { success: true, snapshot };
+    }
+    case 'shot': {
+      store.updateShot(projectId, suggestion.targetId, updates as any);
+      console.log('[EditRouter] Shot updated:', suggestion.targetId, 'project:', projectId);
       return { success: true, snapshot };
     }
     default:

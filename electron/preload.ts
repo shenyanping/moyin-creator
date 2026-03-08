@@ -72,6 +72,28 @@ contextBridge.exposeInMainWorld('storageManager', {
     ipcRenderer.invoke('storage-update-config', config),
 })
 
+// Directory project file system API
+contextBridge.exposeInMainWorld('directoryFs', {
+  readdir: (dirPath: string) => ipcRenderer.invoke('directory-fs-readdir', dirPath),
+  readFile: (filePath: string) => ipcRenderer.invoke('directory-fs-readfile', filePath),
+  exists: (p: string) => ipcRenderer.invoke('directory-fs-exists', p),
+  mkdir: (dirPath: string) => ipcRenderer.invoke('directory-fs-mkdir', dirPath),
+  writeFile: (filePath: string, content: string) => ipcRenderer.invoke('directory-fs-writefile', filePath, content),
+})
+
+// Directory project watcher API
+contextBridge.exposeInMainWorld('directoryWatcher', {
+  openDialog: () => ipcRenderer.invoke('directory-open-dialog'),
+  startWatch: (dirPath: string) => ipcRenderer.invoke('directory-watch-start', dirPath),
+  stopWatch: (dirPath: string) => ipcRenderer.invoke('directory-watch-stop', dirPath),
+  onFilesChanged: (callback: (event: any, data: { dirPath: string; files: string[] }) => void) => {
+    ipcRenderer.on('directory-files-changed', callback)
+    return () => ipcRenderer.off('directory-files-changed', callback)
+  },
+  copyMedia: (srcLocalPath: string, destDir: string, filename: string) =>
+    ipcRenderer.invoke('directory-copy-media', srcLocalPath, destDir, filename),
+})
+
 // Electron API for native features
 contextBridge.exposeInMainWorld('electronAPI', {
   saveFileDialog: (options: { localPath: string, defaultPath: string, filters: { name: string, extensions: string[] }[] }) =>

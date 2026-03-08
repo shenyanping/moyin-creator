@@ -5,6 +5,20 @@ export {};
 
 declare global {
   interface Window {
+    directoryFs?: {
+      readdir: (dirPath: string) => Promise<string[]>;
+      readFile: (filePath: string) => Promise<string>;
+      exists: (p: string) => Promise<boolean>;
+      mkdir: (dirPath: string) => Promise<void>;
+      writeFile: (filePath: string, content: string) => Promise<void>;
+    };
+    directoryWatcher?: {
+      openDialog: () => Promise<string | null>;
+      startWatch: (dirPath: string) => Promise<boolean>;
+      stopWatch: (dirPath: string) => Promise<boolean>;
+      onFilesChanged: (callback: (event: any, data: { dirPath: string; files: string[] }) => void) => () => void;
+      copyMedia: (srcLocalPath: string, destDir: string, filename: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+    };
     storageManager?: {
       getPaths: () => Promise<{ basePath: string; projectPath: string; mediaPath: string; cachePath: string }>;
       selectDirectory: () => Promise<string | null>;

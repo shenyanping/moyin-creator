@@ -16,6 +16,7 @@ import type {
   ProjectBackground,
   PromptLanguage,
   ScriptData,
+  ScriptCharacter,
   Shot,
   SceneRawContent,
 } from "@/types/script";
@@ -1076,6 +1077,39 @@ function applyPromptLanguageToShotPrompts(
 }
 
 /**
+ * 根据 AI 返回的 characterNames 匹配角色库，返回修正后的 characterIds。
+ * 支持精确匹配和包含匹配（如"哪吒（李修）"匹配"哪吒"或"李修"）。
+ */
+function resolveCharacterIds(
+  calibratedNames: string[] | undefined,
+  characters: ScriptCharacter[],
+  fallbackIds: string[]
+): string[] {
+  if (!calibratedNames || calibratedNames.length === 0) return fallbackIds;
+
+  const resolved: string[] = [];
+  for (const name of calibratedNames) {
+    const trimmed = name.trim();
+    if (!trimmed) continue;
+
+    // 1) exact match
+    const exact = characters.find(c => c.name === trimmed);
+    if (exact) { resolved.push(exact.id); continue; }
+
+    // 2) contains match (e.g. "李修（哪吒）" matches "李修" or "哪吒")
+    const contains = characters.find(c =>
+      trimmed.includes(c.name) || c.name.includes(trimmed)
+    );
+    if (contains) { resolved.push(contains.id); continue; }
+
+    // 3) no match — try finding by existing id in fallback (keep as-is)
+    // This handles cases where the name didn't change but the ID is correct
+  }
+
+  return resolved.length > 0 ? resolved : fallbackIds;
+}
+
+/**
  * AI校准分镜：优化中文描述、生成英文visualPrompt、优化镜头设计
  */
 export async function calibrateEpisodeShots(
@@ -1270,6 +1304,11 @@ export async function calibrateEpisodeShots(
                 characterNames: calibration.characterNames?.length > 0 
                   ? calibration.characterNames 
                   : updatedShots[shotIndex].characterNames,
+                characterIds: resolveCharacterIds(
+                  calibration.characterNames,
+                  scriptData.characters,
+                  updatedShots[shotIndex].characterIds
+                ),
                 ambientSound: calibration.ambientSound || updatedShots[shotIndex].ambientSound,
                 soundEffect: calibration.soundEffect || updatedShots[shotIndex].soundEffect,
                 ...applyPromptLanguageToShotPrompts(
@@ -1445,6 +1484,11 @@ export async function calibrateSingleShot(
         duration: calibration.duration || s.duration,
         emotionTags: calibration.emotionTags || s.emotionTags,
         characterNames: calibration.characterNames?.length > 0 ? calibration.characterNames : s.characterNames,
+        characterIds: resolveCharacterIds(
+          calibration.characterNames,
+          scriptData.characters,
+          s.characterIds
+        ),
         ambientSound: calibration.ambientSound || s.ambientSound,
         soundEffect: calibration.soundEffect || s.soundEffect,
         // 三层提示词系统（按 promptLanguage 清理旧字段）

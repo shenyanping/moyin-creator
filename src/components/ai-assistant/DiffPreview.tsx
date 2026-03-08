@@ -34,6 +34,14 @@ const FIELD_LABELS: Record<string, string> = {
   colorPalette: '色彩基调',
   title: '标题',
   description: '描述',
+  actionSummary: '动作描述',
+  dialogue: '对白',
+  shotSize: '景别',
+  cameraMovement: '镜头运动',
+  characterIds: '出场角色ID',
+  characterNames: '出场角色',
+  sceneRefId: '关联场景',
+  duration: '时长(秒)',
 };
 
 interface DiffPreviewProps {

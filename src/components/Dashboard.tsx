@@ -42,11 +42,15 @@ import {
   Copy,
   CheckSquare,
   Upload,
+  FolderInput,
+  Link2,
 } from "lucide-react";
 import { cn, generateUUID } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Project } from "@/stores/project-store";
 import { validateImportData, importMoyinProject } from "@/lib/script/import-service";
+import { importFromDirectory, initProjectDirectory } from "@/lib/script/directory-import-service";
+import { exportProjectToDirectory } from "@/lib/script/directory-export-service";
 
 export function Dashboard() {
   const { projects, createProject, deleteProject, renameProject } = useProjectStore();
@@ -124,8 +128,56 @@ export function Dashboard() {
     }
   }, [setActiveTab]);
 
+  const handleOpenDirectory = useCallback(async () => {
+    try {
+      const watcher = (window as any).directoryWatcher;
+      if (!watcher?.openDialog) {
+        toast.error("此功能需要桌面端");
+        return;
+      }
+      const dirPath = await watcher.openDialog();
+      if (!dirPath) return;
+
+      toast.info("正在读取项目目录...");
+
+      const dirName = dirPath.split("/").pop() || "项目";
+      await initProjectDirectory(dirPath, dirName);
+
+      const result = await importFromDirectory(dirPath);
+
+      // 关联目录到项目
+      const { setLinkedDirectory } = useProjectStore.getState();
+      setLinkedDirectory(result.projectId, dirPath);
+
+      // 启动文件监听
+      await watcher.startWatch(dirPath);
+
+      if (result.warnings.length > 0) {
+        console.warn("[DirectoryImport] Warnings:", result.warnings);
+        toast.warning(`导入完成，有 ${result.warnings.length} 条警告`);
+      } else {
+        toast.success(
+          `目录导入成功：${result.characterCount} 角色, ${result.sceneCount} 场景, ${result.episodeCount} 集, ${result.shotCount} 分镜`
+        );
+      }
+
+      await switchProject(result.projectId);
+      setActiveTab("script");
+    } catch (err: any) {
+      toast.error(`目录导入失败: ${err.message}`);
+    }
+  }, [setActiveTab]);
+
   const handleOpenProject = async (projectId: string) => {
-    if (selectionMode) return; // Don't open in selection mode
+    if (selectionMode) return;
+    // 如果项目关联了目录，重新启动监听
+    const linkedDir = useProjectStore.getState().getLinkedDirectory(projectId);
+    if (linkedDir) {
+      const watcher = (window as any).directoryWatcher;
+      if (watcher?.startWatch) {
+        watcher.startWatch(linkedDir).catch(() => {});
+      }
+    }
     await switchProject(projectId);
     setActiveTab("script");
   };
@@ -296,6 +348,39 @@ export function Dashboard() {
     }
   }, [projects]);
 
+  // ==================== Export to Directory ====================
+
+  const handleExportToDirectory = useCallback(async (projectId: string) => {
+    try {
+      const watcher = (window as any).directoryWatcher;
+      if (!watcher?.openDialog) {
+        toast.error("此功能需要桌面端");
+        return;
+      }
+      const dirPath = await watcher.openDialog();
+      if (!dirPath) return;
+
+      toast.info("正在导出项目到目录...");
+
+      // 确保先加载项目数据
+      await switchProject(projectId);
+      await new Promise(r => setTimeout(r, 300));
+
+      const result = await exportProjectToDirectory(projectId, dirPath);
+
+      // 设置关联目录
+      const { setLinkedDirectory } = useProjectStore.getState();
+      setLinkedDirectory(projectId, dirPath);
+
+      // 启动监听
+      await watcher.startWatch(dirPath);
+
+      toast.success(`导出完成：共 ${result.fileCount} 个文件。目录已关联到项目。`);
+    } catch (err: any) {
+      toast.error(`导出失败: ${err.message}`);
+    }
+  }, []);
+
   // ==================== Helpers ====================
 
   const formatDate = (timestamp: number) => {
@@ -341,6 +426,14 @@ export function Dashboard() {
               {selectionMode ? "退出选择" : "管理"}
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenDirectory}
+          >
+            <FolderInput className="w-4 h-4 mr-1.5" />
+            打开项目目录
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -473,6 +566,9 @@ export function Dashboard() {
                   <div className="p-4">
                     <h3 className="font-medium text-foreground truncate mb-2">
                       {project.name}
+                      {project.linkedDirectory && (
+                        <Link2 className="w-3.5 h-3.5 inline ml-1.5 text-primary/60" />
+                      )}
                     </h3>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -502,6 +598,12 @@ export function Dashboard() {
                             >
                               <Copy className="w-4 h-4 mr-2" />
                               复制项目
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleExportToDirectory(project.id)}
+                            >
+                              <FolderOpen className="w-4 h-4 mr-2" />
+                              导出到目录
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

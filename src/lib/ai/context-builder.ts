@@ -4,7 +4,7 @@ import { useSceneStore } from '@/stores/scene-store';
 import { useMediaPanelStore, type Tab } from '@/stores/media-panel-store';
 import { useProjectStore } from '@/stores/project-store';
 import { estimateTokens } from '@/lib/ai/model-registry';
-import type { ScriptCharacter, ScriptScene, Episode } from '@/types/script';
+import type { ScriptCharacter, ScriptScene, Episode, Shot } from '@/types/script';
 
 export interface EditContext {
   activeTab: Tab;
@@ -14,6 +14,7 @@ export interface EditContext {
   characters: ContextCharacter[];
   scenes: ContextScene[];
   episodes: ContextEpisode[];
+  shots: ContextShot[];
   selectedCharacterId?: string | null;
   selectedSceneId?: string | null;
 }
@@ -58,6 +59,20 @@ interface ContextEpisode {
   title: string;
   description?: string;
   sceneIds: string[];
+}
+
+interface ContextShot {
+  id: string;
+  index: number;
+  episodeId?: string;
+  sceneRefId: string;
+  actionSummary: string;
+  dialogue?: string;
+  shotSize?: string;
+  cameraMovement?: string;
+  characterIds: string[];
+  characterNames?: string[];
+  duration?: number;
 }
 
 const MAX_CONTEXT_TOKENS = 6000;
@@ -110,6 +125,22 @@ function pickEpisodeFields(e: Episode): ContextEpisode {
   };
 }
 
+function pickShotFields(s: Shot): ContextShot {
+  return {
+    id: s.id,
+    index: s.index,
+    episodeId: s.episodeId,
+    sceneRefId: s.sceneRefId,
+    actionSummary: s.actionSummary,
+    dialogue: s.dialogue,
+    shotSize: s.shotSize,
+    cameraMovement: s.cameraMovement,
+    characterIds: s.characterIds || [],
+    characterNames: s.characterNames,
+    duration: s.duration,
+  };
+}
+
 export function buildEditContext(): EditContext {
   const activeTab = useMediaPanelStore.getState().activeTab;
   const scriptStore = useScriptStore.getState();
@@ -125,6 +156,7 @@ export function buildEditContext(): EditContext {
   const characters = (scriptData?.characters || []).map(pickCharacterFields);
   const scenes = (scriptData?.scenes || []).map(pickSceneFields);
   const episodes = (scriptData?.episodes || []).map(pickEpisodeFields);
+  const shots = (scriptProject?.shots || []).map(pickShotFields);
 
   const bgParts: string[] = [];
   if (scriptProject?.projectBackground) {
@@ -143,6 +175,7 @@ export function buildEditContext(): EditContext {
     characters,
     scenes,
     episodes,
+    shots,
     selectedCharacterId: charStore.selectedCharacterId,
     selectedSceneId: sceneStore.selectedSceneId,
   };
@@ -196,6 +229,28 @@ export function serializeContext(ctx: EditContext): string {
     sections.push(`## 场景列表 (共${ctx.scenes.length}个)\n${sceneLines.join('\n')}`);
   }
 
+  if (ctx.shots.length > 0) {
+    const charIdToName: Record<string, string> = {};
+    for (const c of ctx.characters) charIdToName[c.id] = c.name;
+
+    const shotLines = ctx.shots.map((s) => {
+      const charNames = (s.characterNames && s.characterNames.length > 0)
+        ? s.characterNames.join('、')
+        : s.characterIds.map(id => charIdToName[id] || `?${id}`).join('、');
+      const attrs: string[] = [
+        `id=${s.id}`,
+        `#${s.index}`,
+        `场景=${s.sceneRefId}`,
+      ];
+      if (s.shotSize) attrs.push(`景别=${s.shotSize}`);
+      if (charNames) attrs.push(`出场角色=[${charNames}]`);
+      if (s.dialogue) attrs.push(`对白="${s.dialogue.slice(0, 30)}"`);
+      attrs.push(`动作=${s.actionSummary?.slice(0, 40) || ''}`);
+      return `- ${attrs.join(', ')}`;
+    });
+    sections.push(`## 分镜列表 (共${ctx.shots.length}个)\n${shotLines.join('\n')}`);
+  }
+
   let result = sections.join('\n\n');
 
   const tokens = estimateTokens(result);
@@ -230,6 +285,13 @@ function truncateContext(ctx: EditContext, maxTokens: number): string {
       (e) => `- [${e.id}] 第${e.index}集「${e.title}」`
     );
     sections.push(`## 剧集 (共${ctx.episodes.length}集)\n${epLines.join('\n')}`);
+  }
+
+  if (ctx.shots.length > 0) {
+    const shotLines = ctx.shots.map(
+      (s) => `- [${s.id}] #${s.index} 角色=[${(s.characterNames || []).join('、')}] ${s.actionSummary?.slice(0, 30) || ''}`
+    );
+    sections.push(`## 分镜 (共${ctx.shots.length}个)\n${shotLines.join('\n')}`);
   }
 
   let result = sections.join('\n\n');

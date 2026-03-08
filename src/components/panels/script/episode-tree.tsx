@@ -11,6 +11,7 @@
 import { useState, useMemo, useCallback } from "react";
 import type { ScriptData, ScriptCharacter, ScriptScene, Episode, Shot, CompletionStatus, ProjectBackground, EpisodeRawScript } from "@/types/script";
 import { getShotCompletionStatus, calculateProgress, getShotSizeLabel } from "@/lib/script/shot-utils";
+import { useSceneStore } from "@/stores/scene-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -191,6 +192,9 @@ export function EpisodeTree({
   const [filter, setFilter] = useState<FilterType>("all");
   // 角色分组折叠状态
   const [extrasExpanded, setExtrasExpanded] = useState(false);
+  // 场景列表折叠状态
+  const [scenesExpanded, setScenesExpanded] = useState(true);
+  const [ungeneratedScenesExpanded, setUngeneratedScenesExpanded] = useState(true);
   // Tab 状态: 剧集结构 vs 预告片
   const [activeTab, setActiveTab] = useState<"structure" | "trailer">("structure");
   // 预告片时长选择
@@ -256,6 +260,16 @@ export function EpisodeTree({
     });
     return map;
   }, [shots]);
+
+  // 场景 ID → ScriptScene 快速查找
+  const scenesMap = useMemo(() => {
+    const map: Record<string, ScriptScene> = {};
+    scriptData?.scenes?.forEach((s) => { map[s.id] = s; });
+    return map;
+  }, [scriptData?.scenes]);
+
+  // 场景库数据，用于判断场景是否已生成图片
+  const sceneLibraryGetById = useSceneStore((s) => s.getSceneById);
 
   // 筛选后的shots
   const filteredShots = useMemo(() => {
@@ -721,6 +735,11 @@ export function EpisodeTree({
                           </span>
                           <Play className="h-3 w-3 text-muted-foreground" />
                           <span className="text-xs flex-1 truncate">
+                            {scenesMap[shot.sceneRefId] && (
+                              <span className="inline-block px-1 py-0 mr-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[10px]">
+                                {scenesMap[shot.sceneRefId].name || scenesMap[shot.sceneRefId].location}
+                              </span>
+                            )}
                             {getShotSizeLabel(shot.shotSize) || "镜头"} - {shot.actionSummary?.slice(0, 30)}...
                           </span>
                           <span className="text-xs text-muted-foreground">
@@ -1129,6 +1148,111 @@ export function EpisodeTree({
                   </div>
                 )}
               </>
+            );
+          })()}
+
+          {/* 场景列表 - 按已生成/未生成分组 */}
+          {(() => {
+            const allScenes = scriptData.scenes;
+            const generatedScenes: ScriptScene[] = [];
+            const ungeneratedScenes: ScriptScene[] = [];
+
+            for (const sc of allScenes) {
+              const libScene = sc.sceneLibraryId
+                ? sceneLibraryGetById(sc.sceneLibraryId)
+                : undefined;
+              if (libScene?.referenceImage) {
+                generatedScenes.push(sc);
+              } else {
+                ungeneratedScenes.push(sc);
+              }
+            }
+
+            const renderSceneItem = (sc: ScriptScene) => {
+              const shotCount = (shotsByScene[sc.id] || []).length;
+              return (
+                <div key={sc.id} className="flex items-center group">
+                  <button
+                    onClick={() => onSelectItem(sc.id, "scene")}
+                    className={cn(
+                      "flex-1 flex items-center gap-1.5 px-2 py-1 rounded text-xs hover:bg-muted",
+                      selectedItemId === sc.id &&
+                        selectedItemType === "scene" &&
+                        "bg-primary/10"
+                    )}
+                  >
+                    <MapPin className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                    <span className="flex-1 truncate">{sc.name || sc.location}</span>
+                    {shotCount > 0 && (
+                      <span className="text-[10px] text-muted-foreground">{shotCount}镜</span>
+                    )}
+                  </button>
+                </div>
+              );
+            };
+
+            return (
+              <div className="mt-4 pt-4 border-t">
+                <div className="px-2 py-1 text-xs font-medium text-muted-foreground flex items-center justify-between">
+                  <button
+                    onClick={() => setScenesExpanded(!scenesExpanded)}
+                    className="flex items-center gap-1 hover:bg-muted/50 rounded px-1 py-0.5"
+                  >
+                    {scenesExpanded ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                    <MapPin className="h-3 w-3" />
+                    <span>场景列表 ({allScenes.length})</span>
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-5 text-xs px-1"
+                    onClick={() => handleAddScene(episodes[0]?.id || "default")}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+                {scenesExpanded && (
+                  <div className="mt-1 space-y-1">
+                    {generatedScenes.length > 0 && (
+                      <div>
+                        <div className="px-2 py-0.5 text-[10px] text-green-600 dark:text-green-400">
+                          已生成 ({generatedScenes.length})
+                        </div>
+                        <div className="space-y-0.5 px-1">
+                          {generatedScenes.map(renderSceneItem)}
+                        </div>
+                      </div>
+                    )}
+                    {ungeneratedScenes.length > 0 && (
+                      <div>
+                        <button
+                          onClick={() => setUngeneratedScenesExpanded(!ungeneratedScenesExpanded)}
+                          className="w-full px-2 py-0.5 text-[10px] text-muted-foreground flex items-center gap-1 hover:bg-muted/50 rounded"
+                        >
+                          {ungeneratedScenesExpanded ? (
+                            <ChevronDown className="h-2.5 w-2.5" />
+                          ) : (
+                            <ChevronRight className="h-2.5 w-2.5" />
+                          )}
+                          未生成 ({ungeneratedScenes.length})
+                        </button>
+                        {ungeneratedScenesExpanded && (
+                          <div className="space-y-0.5 px-1">
+                            {ungeneratedScenes.map(renderSceneItem)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {allScenes.length === 0 && (
+                      <div className="px-2 py-2 text-xs text-muted-foreground">暂无场景</div>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })()}
         </div>

@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import https from 'node:https'
 import http from 'node:http'
 import os from 'node:os'
+import chokidar from 'chokidar'
 
 // electron-vite 构建后的目录结构
 //
@@ -1135,4 +1136,114 @@ app.whenReady().then(() => {
   })
   
   createWindow()
+})
+
+// ======================== Directory Project File System API ========================
+
+const activeWatchers = new Map<string, chokidar.FSWatcher>()
+
+ipcMain.handle('directory-open-dialog', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory', 'createDirectory'],
+    title: '选择项目目录',
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0]
+})
+
+ipcMain.handle('directory-fs-readdir', async (_e, dirPath: string) => {
+  try {
+    const entries = await fs.promises.readdir(dirPath)
+    return entries
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('directory-fs-readfile', async (_e, filePath: string) => {
+  return fs.promises.readFile(filePath, 'utf-8')
+})
+
+ipcMain.handle('directory-fs-exists', async (_e, p: string) => {
+  try { await fs.promises.access(p); return true } catch { return false }
+})
+
+ipcMain.handle('directory-fs-mkdir', async (_e, dirPath: string) => {
+  await fs.promises.mkdir(dirPath, { recursive: true })
+})
+
+ipcMain.handle('directory-fs-writefile', async (_e, filePath: string, content: string) => {
+  const dir = path.dirname(filePath)
+  await fs.promises.mkdir(dir, { recursive: true })
+  await fs.promises.writeFile(filePath, content, 'utf-8')
+})
+
+ipcMain.handle('directory-watch-start', async (_e, dirPath: string) => {
+  if (activeWatchers.has(dirPath)) return true
+
+  const watcher = chokidar.watch(dirPath, {
+    ignored: [
+      /(^|[/\\])\./,          // ignore dotfiles (except .cursor)
+      '**/node_modules/**',
+      '**/media/**',           // media managed by Moyin, not watched
+    ],
+    persistent: true,
+    ignoreInitial: true,
+    awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
+    depth: 2,
+  })
+
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  const changedFiles = new Set<string>()
+
+  const notifyChanges = () => {
+    if (changedFiles.size === 0) return
+    const files = Array.from(changedFiles)
+    changedFiles.clear()
+    win?.webContents.send('directory-files-changed', { dirPath, files })
+  }
+
+  const handleChange = (filePath: string) => {
+    if (!filePath.endsWith('.json')) return
+    changedFiles.add(filePath)
+    if (debounceTimer) clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(notifyChanges, 800)
+  }
+
+  watcher.on('add', handleChange)
+  watcher.on('change', handleChange)
+  watcher.on('unlink', handleChange)
+
+  activeWatchers.set(dirPath, watcher)
+  return true
+})
+
+ipcMain.handle('directory-watch-stop', async (_e, dirPath: string) => {
+  const watcher = activeWatchers.get(dirPath)
+  if (watcher) {
+    await watcher.close()
+    activeWatchers.delete(dirPath)
+  }
+  return true
+})
+
+ipcMain.handle('directory-copy-media', async (_e, srcLocalPath: string, destDir: string, filename: string) => {
+  try {
+    let srcPath: string
+    if (srcLocalPath.startsWith('local-image://')) {
+      const url = new URL(srcLocalPath)
+      const category = url.hostname
+      const fname = decodeURIComponent(url.pathname.slice(1))
+      srcPath = path.join(getMediaRoot(), category, fname)
+    } else {
+      srcPath = srcLocalPath
+    }
+
+    const destPath = path.join(destDir, filename)
+    await fs.promises.mkdir(path.dirname(destPath), { recursive: true })
+    await fs.promises.copyFile(srcPath, destPath)
+    return { success: true, path: destPath }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
 })

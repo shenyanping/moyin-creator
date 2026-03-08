@@ -55,6 +55,7 @@ interface AssistantActions {
   setEditSuggestions: (messageId: string, suggestions: EditSuggestion[]) => void;
   markSuggestionApplied: (messageId: string, suggestionId: string, snapshot?: EditSnapshot) => void;
   markSuggestionReverted: (messageId: string, suggestionId: string) => void;
+  addSystemNotice: (content: string) => string;
   setStreaming: (streaming: boolean) => void;
   clearHistory: () => void;
   setEditingMessage: (id: string | null) => void;
@@ -100,6 +101,24 @@ export const useAssistantStore = create<AssistantStore>()((set, get) => ({
           role: 'assistant',
           content: '',
           status: 'streaming',
+          timestamp: Date.now(),
+        },
+      ],
+    }));
+    return id;
+  },
+
+  addSystemNotice: (content) => {
+    const id = nanoid();
+    set((s) => ({
+      isOpen: true,
+      messages: [
+        ...s.messages,
+        {
+          id,
+          role: 'assistant' as const,
+          content,
+          status: 'done' as const,
           timestamp: Date.now(),
         },
       ],

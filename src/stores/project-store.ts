@@ -11,6 +11,7 @@ export interface Project {
   name: string;
   createdAt: number;
   updatedAt: number;
+  linkedDirectory?: string;
 }
 
 interface ProjectStore {
@@ -22,6 +23,8 @@ interface ProjectStore {
   deleteProject: (id: string) => void;
   setActiveProject: (id: string | null) => void;
   ensureDefaultProject: () => void;
+  setLinkedDirectory: (id: string, dirPath: string | undefined) => void;
+  getLinkedDirectory: (id: string) => string | undefined;
 }
 
 // Default project for desktop app
@@ -111,6 +114,22 @@ export const useProjectStore = create<ProjectStore>()(
             activeProject: project,
           };
         });
+      },
+
+      setLinkedDirectory: (id, dirPath) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === id ? { ...p, linkedDirectory: dirPath, updatedAt: Date.now() } : p
+          ),
+          activeProject:
+            state.activeProject?.id === id
+              ? { ...state.activeProject, linkedDirectory: dirPath, updatedAt: Date.now() }
+              : state.activeProject,
+        }));
+      },
+
+      getLinkedDirectory: (id) => {
+        return get().projects.find((p) => p.id === id)?.linkedDirectory;
       },
     }),
     {
