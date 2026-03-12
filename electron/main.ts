@@ -1,7 +1,7 @@
 // Copyright (c) 2025 hotflow2024
 // Licensed under AGPL-3.0-or-later. See LICENSE for details.
 // Commercial licensing available. See COMMERCIAL_LICENSE.md.
-import { app, BrowserWindow, ipcMain, protocol, net, dialog, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, protocol, net, dialog, shell, globalShortcut } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import https from 'node:https'
@@ -65,9 +65,22 @@ function createWindow() {
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
+    // 开发模式下自动打开 DevTools（独立窗口，不遮挡主界面）
+    win.webContents.openDevTools({ mode: 'detach' })
   } else {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
+
+  // Cmd+Shift+I (Mac) / Ctrl+Shift+I (Win/Linux) 切换 DevTools
+  win.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'i' && input.shift && (input.meta || input.control)) {
+      win?.webContents.toggleDevTools()
+    }
+    // F12 也可以打开
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      win?.webContents.toggleDevTools()
+    }
+  })
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common

@@ -11,7 +11,24 @@
 import { useState, useEffect } from "react";
 import type { ScriptCharacter, ScriptScene, Shot, CompletionStatus, Episode, EpisodeRawScript } from "@/types/script";
 import { getShotCompletionStatus, getShotSizeLabel } from "@/lib/script/shot-utils";
-import { SHOT_SIZE_PRESETS } from "@/stores/director-presets";
+import {
+  SHOT_SIZE_PRESETS,
+  CAMERA_MOVEMENT_PRESETS,
+  SPECIAL_TECHNIQUE_PRESETS,
+  LIGHTING_STYLE_PRESETS,
+  LIGHTING_DIRECTION_PRESETS,
+  COLOR_TEMPERATURE_PRESETS,
+  DEPTH_OF_FIELD_PRESETS,
+  FOCUS_TRANSITION_PRESETS,
+  CAMERA_RIG_PRESETS,
+  MOVEMENT_SPEED_PRESETS,
+  ATMOSPHERIC_EFFECT_PRESETS,
+  EFFECT_INTENSITY_PRESETS,
+  PLAYBACK_SPEED_PRESETS,
+  CAMERA_ANGLE_PRESETS,
+  FOCAL_LENGTH_PRESETS,
+  PHOTOGRAPHY_TECHNIQUE_PRESETS,
+} from "@/stores/director-presets";
 import { useActiveScriptProject } from "@/stores/script-store";
 import { useCharacterLibraryStore } from "@/stores/character-library-store";
 import { Button } from "@/components/ui/button";
@@ -23,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CAMERA_MOVEMENT_PRESETS, SPECIAL_TECHNIQUE_PRESETS } from "@/stores/director-presets";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -78,6 +95,204 @@ function StatusBadge({ status }: { status?: CompletionStatus }) {
     <span className={`px-2 py-0.5 rounded text-xs ${className}`}>
       {label}
     </span>
+  );
+}
+
+const EMPTY = <span className="text-muted-foreground/50 italic">未填写</span>;
+
+function ShotFieldRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground mb-0.5">{label}</div>
+      <div className="text-sm whitespace-pre-wrap">{value || EMPTY}</div>
+    </div>
+  );
+}
+
+function ShotDisplayFields({
+  shot,
+  scriptProject,
+  onSelectScene,
+}: {
+  shot: Shot;
+  scriptProject: any;
+  onSelectScene?: (id: string) => void;
+}) {
+  const s = shot as any;
+  const emotionLabels: Record<string, string> = {
+    happy: '开心', sad: '悲伤', angry: '愤怒', surprised: '惊讶', fearful: '恐惧', calm: '平静',
+    tense: '紧张', excited: '兴奋', mysterious: '神秘', romantic: '浪漫', funny: '搞笑', touching: '感动',
+    serious: '严肃', relaxed: '轻松', playful: '调侃', gentle: '温柔', passionate: '激昂', low: '低沉',
+  };
+
+  const allAtmosphericEffects = Object.values(ATMOSPHERIC_EFFECT_PRESETS).flat();
+
+  return (
+    <div className="space-y-3">
+      {/* === 镜头语言 === */}
+      <div className="text-xs font-medium text-primary">镜头语言</div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-medium">
+          {shot.shotSize ? getShotSizeLabel(shot.shotSize) : '未设置景别'}
+        </span>
+        <span className="px-2 py-0.5 bg-muted rounded text-xs">
+          {shot.cameraMovement && shot.cameraMovement !== 'none'
+            ? CAMERA_MOVEMENT_PRESETS.find(p => p.id === shot.cameraMovement)?.label || shot.cameraMovement
+            : '无运镜'}
+        </span>
+        {shot.specialTechnique && shot.specialTechnique !== 'none' && (
+          <span className="px-2 py-0.5 bg-purple-500/10 text-purple-600 rounded text-xs">
+            {SPECIAL_TECHNIQUE_PRESETS.find(p => p.id === shot.specialTechnique)?.label || shot.specialTechnique}
+          </span>
+        )}
+        <span className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded text-xs">
+          <Timer className="h-3 w-3" />
+          {s.duration || 5}s
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div><span className="text-muted-foreground">拍摄角度: </span>{s.cameraAngle ? (CAMERA_ANGLE_PRESETS.find(p => p.id === s.cameraAngle)?.label || s.cameraAngle) : <span className="text-muted-foreground/50 italic">未设置</span>}</div>
+        <div><span className="text-muted-foreground">焦距: </span>{s.focalLength ? (FOCAL_LENGTH_PRESETS.find(p => p.id === s.focalLength)?.label || s.focalLength) : <span className="text-muted-foreground/50 italic">未设置</span>}</div>
+        <div><span className="text-muted-foreground">摄影技法: </span>{s.photographyTechnique ? (PHOTOGRAPHY_TECHNIQUE_PRESETS.find(p => p.id === s.photographyTechnique)?.label || s.photographyTechnique) : <span className="text-muted-foreground/50 italic">未设置</span>}</div>
+        <div><span className="text-muted-foreground">播放速度: </span>{s.playbackSpeed ? (PLAYBACK_SPEED_PRESETS.find(p => p.id === s.playbackSpeed)?.label || s.playbackSpeed) : '正常'}</div>
+      </div>
+
+      <Separator className="my-1" />
+
+      {/* === 画面描述 === */}
+      <div className="text-xs font-medium text-primary">画面描述</div>
+      <div className="bg-gradient-to-r from-primary/5 to-transparent p-3 rounded-lg border-l-2 border-primary/30">
+        <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+          <Sparkles className="h-3 w-3" />
+          视觉描述
+        </div>
+        <div className="text-sm leading-relaxed">{s.visualDescription || EMPTY}</div>
+      </div>
+      <ShotFieldRow label="动作描述" value={shot.actionSummary} />
+
+      <Separator className="my-1" />
+
+      {/* === 三层提示词 === */}
+      <div className="text-xs font-medium text-primary">三层提示词（Seedance）</div>
+      <ShotFieldRow label="旧版视觉提示词（英文）" value={s.visualPrompt} />
+      <ShotFieldRow label="首帧提示词（英文）" value={s.imagePrompt} />
+      <ShotFieldRow label="首帧提示词（中文）" value={s.imagePromptZh} />
+      <ShotFieldRow label="视频提示词（英文）" value={s.videoPrompt} />
+      <ShotFieldRow label="视频提示词（中文）" value={s.videoPromptZh} />
+      <div className="text-xs"><span className="text-muted-foreground">需要尾帧: </span>{s.needsEndFrame ? '是' : '否'}</div>
+      {s.needsEndFrame && (
+        <>
+          <ShotFieldRow label="尾帧提示词（英文）" value={s.endFramePrompt} />
+          <ShotFieldRow label="尾帧提示词（中文）" value={s.endFramePromptZh} />
+        </>
+      )}
+
+      <Separator className="my-1" />
+
+      {/* === 音频设计 === */}
+      <div className="text-xs font-medium text-primary flex items-center gap-1"><Volume2 className="h-3 w-3" />音频设计</div>
+      <ShotFieldRow label="对白" value={shot.dialogue ? `"${shot.dialogue}"` : undefined} />
+      <ShotFieldRow label="环境声" value={s.ambientSound} />
+      <ShotFieldRow label="音效" value={s.soundEffect} />
+
+      <Separator className="my-1" />
+
+      {/* === 关联 === */}
+      <div className="text-xs font-medium text-primary">关联</div>
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">关联场景</div>
+        {(() => {
+          const linkedScene = shot.sceneRefId
+            ? scriptProject?.scriptData?.scenes?.find((sc: any) => sc.id === shot.sceneRefId)
+            : undefined;
+          if (!linkedScene) return <span className="text-muted-foreground/50 italic text-xs">未关联</span>;
+          return (
+            <button
+              className="px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-xs hover:bg-blue-500/20 transition-colors"
+              onClick={() => onSelectScene?.(linkedScene.id)}
+            >
+              <MapPin className="inline h-3 w-3 mr-0.5 -mt-0.5" />
+              {linkedScene.name || linkedScene.location}
+            </button>
+          );
+        })()}
+      </div>
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">出场角色</div>
+        <div className="flex flex-wrap gap-1">
+          {shot.characterNames && shot.characterNames.length > 0 ? shot.characterNames.map((name, i) => (
+            <span key={i} className="px-2 py-0.5 bg-muted rounded text-xs">{name}</span>
+          )) : <span className="text-muted-foreground/50 italic text-xs">未关联角色</span>}
+        </div>
+      </div>
+      <div>
+        <div className="text-xs text-muted-foreground mb-1">情绪标签</div>
+        <div className="flex flex-wrap gap-1">
+          {shot.emotionTags && shot.emotionTags.length > 0 ? shot.emotionTags.map((tag, i) => (
+            <span key={i} className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs">
+              {emotionLabels[tag] || tag}
+            </span>
+          )) : <span className="text-muted-foreground/50 italic text-xs">无标签</span>}
+        </div>
+      </div>
+
+      <Separator className="my-1" />
+
+      {/* === 叙事驱动 === */}
+      <div className="text-xs font-medium text-primary">叙事驱动</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div><span className="text-muted-foreground">叙事功能: </span>{s.narrativeFunction || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+        <div><span className="text-muted-foreground">冲突阶段: </span>{s.conflictStage || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+      </div>
+      <ShotFieldRow label="镜头目的" value={s.shotPurpose} />
+      <ShotFieldRow label="故事一致性" value={s.storyAlignment} />
+      <ShotFieldRow label="视觉焦点" value={s.visualFocus} />
+      <ShotFieldRow label="机位描述" value={s.cameraPosition} />
+      <ShotFieldRow label="人物布局" value={s.characterBlocking} />
+      <ShotFieldRow label="节奏" value={s.rhythm} />
+
+      <Separator className="my-1" />
+
+      {/* === 灯光设计 === */}
+      <div className="text-xs font-medium text-primary">灯光设计</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div><span className="text-muted-foreground">灯光风格: </span>{s.lightingStyle ? (LIGHTING_STYLE_PRESETS.find(p => p.id === s.lightingStyle)?.label || s.lightingStyle) : <span className="text-muted-foreground/50 italic">未设置</span>}</div>
+        <div><span className="text-muted-foreground">灯光方向: </span>{s.lightingDirection ? (LIGHTING_DIRECTION_PRESETS.find(p => p.id === s.lightingDirection)?.label || s.lightingDirection) : <span className="text-muted-foreground/50 italic">未设置</span>}</div>
+        <div><span className="text-muted-foreground">色温: </span>{s.colorTemperature ? (COLOR_TEMPERATURE_PRESETS.find(p => p.id === s.colorTemperature)?.label || s.colorTemperature) : <span className="text-muted-foreground/50 italic">未设置</span>}</div>
+      </div>
+      <ShotFieldRow label="灯光备注" value={s.lightingNotes} />
+
+      <Separator className="my-1" />
+
+      {/* === 焦点控制 === */}
+      <div className="text-xs font-medium text-primary">焦点控制</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div><span className="text-muted-foreground">景深: </span>{s.depthOfField ? (DEPTH_OF_FIELD_PRESETS.find(p => p.id === s.depthOfField)?.label || s.depthOfField) : <span className="text-muted-foreground/50 italic">未设置</span>}</div>
+        <div><span className="text-muted-foreground">转焦: </span>{s.focusTransition && s.focusTransition !== 'none' ? (FOCUS_TRANSITION_PRESETS.find(p => p.id === s.focusTransition)?.label || s.focusTransition) : '固定焦点'}</div>
+      </div>
+      <ShotFieldRow label="焦点目标" value={s.focusTarget} />
+
+      <Separator className="my-1" />
+
+      {/* === 器材 & 速度 === */}
+      <div className="text-xs font-medium text-primary">器材 & 速度</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div><span className="text-muted-foreground">拍摄器材: </span>{s.cameraRig ? (CAMERA_RIG_PRESETS.find(p => p.id === s.cameraRig)?.label || s.cameraRig) : <span className="text-muted-foreground/50 italic">未设置</span>}</div>
+        <div><span className="text-muted-foreground">运动速度: </span>{s.movementSpeed ? (MOVEMENT_SPEED_PRESETS.find(p => p.id === s.movementSpeed)?.label || s.movementSpeed) : '正常'}</div>
+      </div>
+
+      <Separator className="my-1" />
+
+      {/* === 氛围特效 === */}
+      <div className="text-xs font-medium text-primary">氛围特效</div>
+      <div className="flex flex-wrap gap-1">
+        {s.atmosphericEffects && s.atmosphericEffects.length > 0 ? s.atmosphericEffects.map((efId: string, i: number) => {
+          const ef = allAtmosphericEffects.find(e => e.id === efId);
+          return <span key={i} className="px-2 py-0.5 bg-muted rounded text-xs">{ef ? `${ef.emoji} ${ef.label}` : efId}</span>;
+        }) : <span className="text-muted-foreground/50 italic text-xs">无特效</span>}
+      </div>
+      <div className="text-xs"><span className="text-muted-foreground">特效强度: </span>{s.effectIntensity ? (EFFECT_INTENSITY_PRESETS.find(p => p.id === s.effectIntensity)?.label || s.effectIntensity) : '中等'}</div>
+    </div>
   );
 }
 
@@ -692,6 +907,10 @@ export function PropertyPanel({
         keyActions: character.keyActions || "",
         appearance: character.appearance || "",
         relationships: character.relationships || "",
+        visualPromptEn: character.visualPromptEn || "",
+        visualPromptZh: character.visualPromptZh || "",
+        tags: character.tags || [],
+        notes: character.notes || "",
       });
     } else if (selectedItemType === "scene" && scene) {
       setEditData({
@@ -699,8 +918,18 @@ export function PropertyPanel({
         location: scene.location || "",
         time: scene.time || "",
         atmosphere: scene.atmosphere || "",
+        visualPrompt: scene.visualPrompt || "",
+        visualPromptEn: scene.visualPromptEn || "",
+        notes: scene.notes || "",
+        architectureStyle: scene.architectureStyle || "",
+        lightingDesign: scene.lightingDesign || "",
+        colorPalette: scene.colorPalette || "",
+        eraDetails: scene.eraDetails || "",
+        spatialLayout: scene.spatialLayout || "",
+        keyProps: scene.keyProps || [],
       });
     } else if (selectedItemType === "shot" && shot) {
+      const s = shot as any;
       setEditData({
         actionSummary: shot.actionSummary || "",
         dialogue: shot.dialogue || "",
@@ -709,6 +938,41 @@ export function PropertyPanel({
         specialTechnique: shot.specialTechnique || "none",
         characterIds: [...(shot.characterIds || [])],
         sceneRefId: shot.sceneRefId || "",
+        duration: s.duration || 5,
+        visualDescription: s.visualDescription || "",
+        visualPrompt: s.visualPrompt || "",
+        imagePrompt: s.imagePrompt || "",
+        imagePromptZh: s.imagePromptZh || "",
+        videoPrompt: s.videoPrompt || "",
+        videoPromptZh: s.videoPromptZh || "",
+        endFramePrompt: s.endFramePrompt || "",
+        endFramePromptZh: s.endFramePromptZh || "",
+        needsEndFrame: !!s.needsEndFrame,
+        ambientSound: s.ambientSound || "",
+        soundEffect: s.soundEffect || "",
+        narrativeFunction: s.narrativeFunction || "",
+        conflictStage: s.conflictStage || "",
+        shotPurpose: s.shotPurpose || "",
+        storyAlignment: s.storyAlignment || "",
+        visualFocus: s.visualFocus || "",
+        cameraPosition: s.cameraPosition || "",
+        characterBlocking: s.characterBlocking || "",
+        rhythm: s.rhythm || "",
+        lightingStyle: s.lightingStyle || "",
+        lightingDirection: s.lightingDirection || "",
+        colorTemperature: s.colorTemperature || "",
+        lightingNotes: s.lightingNotes || "",
+        depthOfField: s.depthOfField || "",
+        focusTarget: s.focusTarget || "",
+        focusTransition: s.focusTransition || "none",
+        cameraRig: s.cameraRig || "",
+        movementSpeed: s.movementSpeed || "normal",
+        atmosphericEffects: s.atmosphericEffects || [],
+        effectIntensity: s.effectIntensity || "moderate",
+        playbackSpeed: s.playbackSpeed || "normal",
+        cameraAngle: s.cameraAngle || "",
+        focalLength: s.focalLength || "",
+        photographyTechnique: s.photographyTechnique || "",
       });
     }
     setIsEditing(true);
@@ -947,6 +1211,22 @@ export function PropertyPanel({
                 <Label className="text-xs">人物关系</Label>
                 <Textarea value={editData.relationships || ""} onChange={(e) => setEditData({ ...editData, relationships: e.target.value })} className="min-h-[40px]" />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">英文视觉提示词</Label>
+                <Textarea value={editData.visualPromptEn || ""} onChange={(e) => setEditData({ ...editData, visualPromptEn: e.target.value })} className="min-h-[60px]" placeholder="English visual prompt for image generation" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">中文视觉提示词</Label>
+                <Textarea value={editData.visualPromptZh || ""} onChange={(e) => setEditData({ ...editData, visualPromptZh: e.target.value })} className="min-h-[60px]" placeholder="用于AI图像生成的中文视觉描述" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">角色标签</Label>
+                <Input value={Array.isArray(editData.tags) ? (editData.tags as string[]).join(', ') : ''} onChange={(e) => setEditData({ ...editData, tags: e.target.value.split(/[,，]\s*/).filter(Boolean) })} className="h-8" placeholder="protagonist, supporting, minor, extra" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">角色备注</Label>
+                <Textarea value={editData.notes || ""} onChange={(e) => setEditData({ ...editData, notes: e.target.value })} className="min-h-[40px]" />
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -967,87 +1247,60 @@ export function PropertyPanel({
                 </div>
               )}
               
-              {/* 视觉提示词（世界级大师生成） */}
-              {((promptLanguage !== 'en' && character.visualPromptZh) || (promptLanguage !== 'zh' && character.visualPromptEn)) && (
-                <div className="bg-gradient-to-r from-purple-500/10 to-transparent p-2 rounded-lg border-l-2 border-purple-500/30">
-                  <div className="text-xs text-purple-600 dark:text-purple-400 mb-1">🎨 视觉提示词</div>
-                  {promptLanguage !== 'en' && character.visualPromptZh && (
-                    <div className="text-xs text-muted-foreground mb-1">{character.visualPromptZh}</div>
-                  )}
-                  {promptLanguage !== 'zh' && character.visualPromptEn && (
-                    <div className="text-xs text-muted-foreground/70 italic">{character.visualPromptEn}</div>
-                  )}
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">身份/背景</div>
+                <div className="text-sm whitespace-pre-wrap">{character.role || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">基本信息</div>
+                <div className="text-sm">
+                  {[character.gender, character.age].filter(Boolean).join(" · ") || <span className="text-muted-foreground/50 italic">未填写</span>}
                 </div>
-              )}
-              
-              {character.role && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">身份/背景</div>
-                  <div className="text-sm whitespace-pre-wrap">{character.role}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">性格</div>
+                <div className="text-sm whitespace-pre-wrap">{character.personality || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">核心特质</div>
+                <div className="text-sm whitespace-pre-wrap">{character.traits || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">技能/能力</div>
+                <div className="text-sm whitespace-pre-wrap">{character.skills || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">关键行为/事迹</div>
+                <div className="text-sm whitespace-pre-wrap">{character.keyActions || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">外貌特征</div>
+                <div className="text-sm whitespace-pre-wrap">{character.appearance || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">人物关系</div>
+                <div className="text-sm whitespace-pre-wrap">{character.relationships || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">英文视觉提示词</div>
+                <div className="text-sm whitespace-pre-wrap">{character.visualPromptEn || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">中文视觉提示词</div>
+                <div className="text-sm whitespace-pre-wrap">{character.visualPromptZh || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">角色标签</div>
+                <div className="flex flex-wrap gap-1">
+                  {character.tags && character.tags.length > 0 ? character.tags.map((tag, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs">{tag}</span>
+                  )) : <span className="text-muted-foreground/50 italic text-xs">未填写</span>}
                 </div>
-              )}
-              {(character.gender || character.age) && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">基本信息</div>
-                  <div className="text-sm">
-                    {[character.gender, character.age].filter(Boolean).join(" · ")}
-                  </div>
-                </div>
-              )}
-              {character.personality && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">性格</div>
-                  <div className="text-sm whitespace-pre-wrap">{character.personality}</div>
-                </div>
-              )}
-              {character.traits && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">核心特质</div>
-                  <div className="text-sm whitespace-pre-wrap">{character.traits}</div>
-                </div>
-              )}
-              {character.skills && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">技能/能力</div>
-                  <div className="text-sm whitespace-pre-wrap">{character.skills}</div>
-                </div>
-              )}
-              {character.keyActions && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">关键行为/事迹</div>
-                  <div className="text-sm whitespace-pre-wrap">{character.keyActions}</div>
-                </div>
-              )}
-              {character.appearance && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">外貌特征</div>
-                  <div className="text-sm whitespace-pre-wrap">{character.appearance}</div>
-                </div>
-              )}
-              {character.relationships && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">人物关系</div>
-                  <div className="text-sm whitespace-pre-wrap">{character.relationships}</div>
-                </div>
-              )}
-              {character.tags && character.tags.length > 0 && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">角色标签</div>
-                  <div className="flex flex-wrap gap-1">
-                    {character.tags.map((tag, i) => (
-                      <span key={i} className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {character.notes && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">角色备注</div>
-                  <div className="text-sm text-muted-foreground italic whitespace-pre-wrap">{character.notes}</div>
-                </div>
-              )}
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">角色备注</div>
+                <div className="text-sm text-muted-foreground italic whitespace-pre-wrap">{character.notes || <span className="text-muted-foreground/50">未填写</span>}</div>
+              </div>
             </div>
           )}
 
@@ -1173,90 +1426,102 @@ export function PropertyPanel({
                 <Label className="text-xs">氛围</Label>
                 <Textarea value={editData.atmosphere || ""} onChange={(e) => setEditData({ ...editData, atmosphere: e.target.value })} className="min-h-[60px]" />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">中文视觉提示词</Label>
+                <Textarea value={editData.visualPrompt || ""} onChange={(e) => setEditData({ ...editData, visualPrompt: e.target.value })} className="min-h-[60px]" placeholder="用于场景概念图生成的中文视觉描述" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">英文视觉提示词</Label>
+                <Textarea value={editData.visualPromptEn || ""} onChange={(e) => setEditData({ ...editData, visualPromptEn: e.target.value })} className="min-h-[60px]" placeholder="English visual prompt for scene concept art" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">建筑风格</Label>
+                <Input value={editData.architectureStyle || ""} onChange={(e) => setEditData({ ...editData, architectureStyle: e.target.value })} className="h-8" placeholder="如：古风建筑、赛博朋克风" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">光影设计</Label>
+                <Input value={editData.lightingDesign || ""} onChange={(e) => setEditData({ ...editData, lightingDesign: e.target.value })} className="h-8" placeholder="如：侧光、逆光、柔和漫射光" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">色彩基调</Label>
+                <Input value={editData.colorPalette || ""} onChange={(e) => setEditData({ ...editData, colorPalette: e.target.value })} className="h-8" placeholder="如：暖色调、冷色调、高对比" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">时代特征</Label>
+                <Input value={editData.eraDetails || ""} onChange={(e) => setEditData({ ...editData, eraDetails: e.target.value })} className="h-8" placeholder="如：明清时期、未来2077" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">空间布局</Label>
+                <Textarea value={editData.spatialLayout || ""} onChange={(e) => setEditData({ ...editData, spatialLayout: e.target.value })} className="min-h-[40px]" placeholder="空间的结构与层次关系" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">关键道具</Label>
+                <Input value={Array.isArray(editData.keyProps) ? (editData.keyProps as string[]).join(', ') : ''} onChange={(e) => setEditData({ ...editData, keyProps: e.target.value.split(/[,，]\s*/).filter(Boolean) })} className="h-8" placeholder="多个道具用逗号分隔" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">备注</Label>
+                <Textarea value={editData.notes || ""} onChange={(e) => setEditData({ ...editData, notes: e.target.value })} className="min-h-[40px]" />
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* 基础信息 */}
               <div>
                 <div className="text-xs text-muted-foreground mb-1">地点</div>
-                <div className="text-sm">{scene.location}</div>
+                <div className="text-sm">{scene.location || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground mb-1">时间</div>
-                <div className="text-sm">{scene.time}</div>
+                <div className="text-sm">{scene.time || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
               </div>
-              {scene.atmosphere && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">氛围</div>
-                  <div className="text-sm">{scene.atmosphere}</div>
-                </div>
-              )}
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">氛围</div>
+                <div className="text-sm">{scene.atmosphere || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
               
-              {/* 专业场景设计字段（AI校准后显示） */}
-              {(scene.architectureStyle || scene.lightingDesign || scene.colorPalette || scene.eraDetails) && (
-                <>
-                  <Separator className="my-2" />
-                  <div className="text-xs font-medium text-primary mb-2">场景设计</div>
-                  
-                  {scene.architectureStyle && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">建筑风格</div>
-                      <div className="text-sm">{scene.architectureStyle}</div>
-                    </div>
-                  )}
-                  {scene.lightingDesign && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">光影设计</div>
-                      <div className="text-sm">{scene.lightingDesign}</div>
-                    </div>
-                  )}
-                  {scene.colorPalette && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">色彩基调</div>
-                      <div className="text-sm">{scene.colorPalette}</div>
-                    </div>
-                  )}
-                  {scene.eraDetails && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">时代特征</div>
-                      <div className="text-sm">{scene.eraDetails}</div>
-                    </div>
-                  )}
-                  {scene.keyProps && scene.keyProps.length > 0 && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">关键道具</div>
-                      <div className="text-sm">{scene.keyProps.join('、')}</div>
-                    </div>
-                  )}
-                  {scene.spatialLayout && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">空间布局</div>
-                      <div className="text-sm">{scene.spatialLayout}</div>
-                    </div>
-                  )}
-                </>
-              )}
+              <Separator className="my-2" />
+              <div className="text-xs font-medium text-primary mb-2">场景设计</div>
               
-              {/* 视觉提示词（AI校准后显示） */}
-              {((promptLanguage !== 'en' && scene.visualPrompt) || (promptLanguage !== 'zh' && scene.visualPromptEn)) && (
-                <>
-                  <Separator className="my-2" />
-                  <div className="text-xs font-medium text-primary mb-2">视觉提示词</div>
-                  
-                  {promptLanguage !== 'en' && scene.visualPrompt && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">中文</div>
-                      <div className="text-sm text-muted-foreground">{scene.visualPrompt}</div>
-                    </div>
-                  )}
-                  {promptLanguage !== 'zh' && scene.visualPromptEn && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">English</div>
-                      <div className="text-sm text-muted-foreground italic">{scene.visualPromptEn}</div>
-                    </div>
-                  )}
-                </>
-              )}
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">建筑风格</div>
+                <div className="text-sm">{scene.architectureStyle || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">光影设计</div>
+                <div className="text-sm">{scene.lightingDesign || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">色彩基调</div>
+                <div className="text-sm">{scene.colorPalette || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">时代特征</div>
+                <div className="text-sm">{scene.eraDetails || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">关键道具</div>
+                <div className="text-sm">{scene.keyProps && scene.keyProps.length > 0 ? scene.keyProps.join('、') : <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">空间布局</div>
+                <div className="text-sm">{scene.spatialLayout || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              
+              <Separator className="my-2" />
+              <div className="text-xs font-medium text-primary mb-2">视觉提示词</div>
+              
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">中文</div>
+                <div className="text-sm text-muted-foreground">{scene.visualPrompt || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">English</div>
+                <div className="text-sm text-muted-foreground italic">{scene.visualPromptEn || <span className="text-muted-foreground/50 italic">未填写</span>}</div>
+              </div>
+              
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">备注</div>
+                <div className="text-sm text-muted-foreground italic">{scene.notes || <span className="text-muted-foreground/50">未填写</span>}</div>
+              </div>
               
               {/* 多视角联合图预览 - 仅显示 AI 分析的视角 */}
               {sceneShots.length > 0 && (() => {
@@ -1455,6 +1720,8 @@ export function PropertyPanel({
           {/* 属性 */}
           {isEditing ? (
             <div className="space-y-3">
+              {/* === 镜头语言 === */}
+              <div className="text-xs font-medium text-primary">镜头语言</div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs">景别</Label>
@@ -1468,6 +1735,12 @@ export function PropertyPanel({
                   </Select>
                 </div>
                 <div className="space-y-1">
+                  <Label className="text-xs">时长（秒）</Label>
+                  <Input type="number" min={1} max={60} value={editData.duration ?? 5} onChange={(e) => setEditData({ ...editData, duration: Number(e.target.value) || 5 })} className="h-8" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
                   <Label className="text-xs">镜头运动</Label>
                   <Select value={editData.cameraMovement || 'none'} onValueChange={(v) => setEditData({ ...editData, cameraMovement: v })}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -1478,27 +1751,129 @@ export function PropertyPanel({
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">特殊手法</Label>
+                  <Select value={editData.specialTechnique || 'none'} onValueChange={(v) => setEditData({ ...editData, specialTechnique: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SPECIAL_TECHNIQUE_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">拍摄角度</Label>
+                  <Select value={editData.cameraAngle as string || ''} onValueChange={(v) => setEditData({ ...editData, cameraAngle: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择角度" /></SelectTrigger>
+                    <SelectContent>
+                      {CAMERA_ANGLE_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.emoji} {p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">焦距</Label>
+                  <Select value={editData.focalLength as string || ''} onValueChange={(v) => setEditData({ ...editData, focalLength: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择焦距" /></SelectTrigger>
+                    <SelectContent>
+                      {FOCAL_LENGTH_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">特殊拍摄手法</Label>
-                <Select value={editData.specialTechnique || 'none'} onValueChange={(v) => setEditData({ ...editData, specialTechnique: v })}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <Label className="text-xs">摄影技法</Label>
+                <Select value={editData.photographyTechnique as string || ''} onValueChange={(v) => setEditData({ ...editData, photographyTechnique: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择技法" /></SelectTrigger>
                   <SelectContent>
-                    {SPECIAL_TECHNIQUE_PRESETS.map(p => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">{p.label}</SelectItem>
+                    {PHOTOGRAPHY_TECHNIQUE_PRESETS.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">{p.emoji} {p.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              <Separator className="my-1" />
+
+              {/* === 画面描述 === */}
+              <div className="text-xs font-medium text-primary">画面描述</div>
+              <div className="space-y-1">
+                <Label className="text-xs">视觉描述</Label>
+                <Textarea value={editData.visualDescription || ""} onChange={(e) => setEditData({ ...editData, visualDescription: e.target.value })} className="min-h-[60px]" placeholder="画面构图、光影、色彩等" />
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs">动作描述</Label>
-                <Textarea value={editData.actionSummary || ""} onChange={(e) => setEditData({ ...editData, actionSummary: e.target.value })} className="min-h-[80px]" />
+                <Textarea value={editData.actionSummary || ""} onChange={(e) => setEditData({ ...editData, actionSummary: e.target.value })} className="min-h-[60px]" />
+              </div>
+
+              <Separator className="my-1" />
+
+              {/* === 三层提示词系统 === */}
+              <div className="text-xs font-medium text-primary">三层提示词（Seedance）</div>
+              <div className="space-y-1">
+                <Label className="text-xs">旧版视觉提示词（英文）</Label>
+                <Textarea value={editData.visualPrompt || ""} onChange={(e) => setEditData({ ...editData, visualPrompt: e.target.value })} className="min-h-[40px]" placeholder="Legacy visual prompt (English)" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">对白</Label>
-                <Textarea value={editData.dialogue || ""} onChange={(e) => setEditData({ ...editData, dialogue: e.target.value })} className="min-h-[60px]" />
+                <Label className="text-xs">首帧提示词（英文）</Label>
+                <Textarea value={editData.imagePrompt || ""} onChange={(e) => setEditData({ ...editData, imagePrompt: e.target.value })} className="min-h-[40px]" placeholder="静态画面描述 (English)" />
               </div>
-              {/* 关联场景选择 */}
+              <div className="space-y-1">
+                <Label className="text-xs">首帧提示词（中文）</Label>
+                <Textarea value={editData.imagePromptZh || ""} onChange={(e) => setEditData({ ...editData, imagePromptZh: e.target.value })} className="min-h-[40px]" placeholder="首帧静态画面描述" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">视频提示词（英文）</Label>
+                <Textarea value={editData.videoPrompt || ""} onChange={(e) => setEditData({ ...editData, videoPrompt: e.target.value })} className="min-h-[40px]" placeholder="动态动作描述 (English)" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">视频提示词（中文）</Label>
+                <Textarea value={editData.videoPromptZh || ""} onChange={(e) => setEditData({ ...editData, videoPromptZh: e.target.value })} className="min-h-[40px]" placeholder="视频动态动作描述" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox checked={!!editData.needsEndFrame} onCheckedChange={(v) => setEditData({ ...editData, needsEndFrame: !!v })} id="needsEndFrame" />
+                <Label htmlFor="needsEndFrame" className="text-xs">需要尾帧</Label>
+              </div>
+              {editData.needsEndFrame && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">尾帧提示词（英文）</Label>
+                    <Textarea value={editData.endFramePrompt || ""} onChange={(e) => setEditData({ ...editData, endFramePrompt: e.target.value })} className="min-h-[40px]" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">尾帧提示词（中文）</Label>
+                    <Textarea value={editData.endFramePromptZh || ""} onChange={(e) => setEditData({ ...editData, endFramePromptZh: e.target.value })} className="min-h-[40px]" />
+                  </div>
+                </>
+              )}
+
+              <Separator className="my-1" />
+
+              {/* === 音频设计 === */}
+              <div className="text-xs font-medium text-primary">音频设计</div>
+              <div className="space-y-1">
+                <Label className="text-xs">对白</Label>
+                <Textarea value={editData.dialogue || ""} onChange={(e) => setEditData({ ...editData, dialogue: e.target.value })} className="min-h-[40px]" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">环境声</Label>
+                <Input value={editData.ambientSound || ""} onChange={(e) => setEditData({ ...editData, ambientSound: e.target.value })} className="h-8" placeholder="如：沉重的风声" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">音效</Label>
+                <Input value={editData.soundEffect || ""} onChange={(e) => setEditData({ ...editData, soundEffect: e.target.value })} className="h-8" placeholder="如：远处悠长的钟声" />
+              </div>
+
+              <Separator className="my-1" />
+
+              {/* === 关联 === */}
+              <div className="text-xs font-medium text-primary">关联</div>
               <div className="space-y-1">
                 <Label className="text-xs">关联场景</Label>
                 <Select
@@ -1517,7 +1892,6 @@ export function PropertyPanel({
                   </SelectContent>
                 </Select>
               </div>
-              {/* 出场角色多选 */}
               <div className="space-y-1">
                 <Label className="text-xs">出场角色</Label>
                 <div className="flex flex-wrap gap-1.5 p-2 border rounded-lg bg-background min-h-[36px]">
@@ -1549,140 +1923,205 @@ export function PropertyPanel({
                   )}
                 </div>
               </div>
+
+              <Separator className="my-1" />
+
+              {/* === 叙事驱动 === */}
+              <div className="text-xs font-medium text-primary">叙事驱动</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">叙事功能</Label>
+                  <Input value={editData.narrativeFunction || ""} onChange={(e) => setEditData({ ...editData, narrativeFunction: e.target.value })} className="h-8" placeholder="铺垫/升级/高潮/转折..." />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">冲突阶段</Label>
+                  <Input value={editData.conflictStage || ""} onChange={(e) => setEditData({ ...editData, conflictStage: e.target.value })} className="h-8" placeholder="引入/激化/对抗..." />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">镜头目的</Label>
+                <Textarea value={editData.shotPurpose || ""} onChange={(e) => setEditData({ ...editData, shotPurpose: e.target.value })} className="min-h-[40px]" placeholder="此镜头如何服务于故事" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">故事一致性</Label>
+                <Input value={editData.storyAlignment || ""} onChange={(e) => setEditData({ ...editData, storyAlignment: e.target.value })} className="h-8" placeholder="aligned / minor-deviation / needs-review" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">视觉焦点</Label>
+                <Input value={editData.visualFocus || ""} onChange={(e) => setEditData({ ...editData, visualFocus: e.target.value })} className="h-8" placeholder="观众应该看什么" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">机位描述</Label>
+                <Input value={editData.cameraPosition || ""} onChange={(e) => setEditData({ ...editData, cameraPosition: e.target.value })} className="h-8" placeholder="摄影机相对于人物的位置" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">人物布局</Label>
+                <Input value={editData.characterBlocking || ""} onChange={(e) => setEditData({ ...editData, characterBlocking: e.target.value })} className="h-8" placeholder="人物在画面中的位置" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">节奏</Label>
+                <Input value={editData.rhythm || ""} onChange={(e) => setEditData({ ...editData, rhythm: e.target.value })} className="h-8" placeholder="节奏感描述" />
+              </div>
+
+              <Separator className="my-1" />
+
+              {/* === 灯光设计 === */}
+              <div className="text-xs font-medium text-primary">灯光设计</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">灯光风格</Label>
+                  <Select value={editData.lightingStyle as string || ''} onValueChange={(v) => setEditData({ ...editData, lightingStyle: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择风格" /></SelectTrigger>
+                    <SelectContent>
+                      {LIGHTING_STYLE_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.emoji} {p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">灯光方向</Label>
+                  <Select value={editData.lightingDirection as string || ''} onValueChange={(v) => setEditData({ ...editData, lightingDirection: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择方向" /></SelectTrigger>
+                    <SelectContent>
+                      {LIGHTING_DIRECTION_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.emoji} {p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">色温</Label>
+                <Select value={editData.colorTemperature as string || ''} onValueChange={(v) => setEditData({ ...editData, colorTemperature: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择色温" /></SelectTrigger>
+                  <SelectContent>
+                    {COLOR_TEMPERATURE_PRESETS.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">{p.emoji} {p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">灯光备注</Label>
+                <Input value={editData.lightingNotes || ""} onChange={(e) => setEditData({ ...editData, lightingNotes: e.target.value })} className="h-8" placeholder="补充说明" />
+              </div>
+
+              <Separator className="my-1" />
+
+              {/* === 焦点控制 === */}
+              <div className="text-xs font-medium text-primary">焦点控制</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">景深</Label>
+                  <Select value={editData.depthOfField as string || ''} onValueChange={(v) => setEditData({ ...editData, depthOfField: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择景深" /></SelectTrigger>
+                    <SelectContent>
+                      {DEPTH_OF_FIELD_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.emoji} {p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">转焦</Label>
+                  <Select value={editData.focusTransition as string || 'none'} onValueChange={(v) => setEditData({ ...editData, focusTransition: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {FOCUS_TRANSITION_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">焦点目标</Label>
+                <Input value={editData.focusTarget || ""} onChange={(e) => setEditData({ ...editData, focusTarget: e.target.value })} className="h-8" placeholder="如：人物面部" />
+              </div>
+
+              <Separator className="my-1" />
+
+              {/* === 器材 & 速度 === */}
+              <div className="text-xs font-medium text-primary">器材 & 速度</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">拍摄器材</Label>
+                  <Select value={editData.cameraRig as string || ''} onValueChange={(v) => setEditData({ ...editData, cameraRig: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择器材" /></SelectTrigger>
+                    <SelectContent>
+                      {CAMERA_RIG_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.emoji} {p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">运动速度</Label>
+                  <Select value={editData.movementSpeed as string || 'normal'} onValueChange={(v) => setEditData({ ...editData, movementSpeed: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MOVEMENT_SPEED_PRESETS.map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">播放速度</Label>
+                <Select value={editData.playbackSpeed as string || 'normal'} onValueChange={(v) => setEditData({ ...editData, playbackSpeed: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PLAYBACK_SPEED_PRESETS.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">{p.emoji} {p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator className="my-1" />
+
+              {/* === 氛围特效 === */}
+              <div className="text-xs font-medium text-primary">氛围特效</div>
+              <div className="space-y-1">
+                <Label className="text-xs">特效选择</Label>
+                <div className="flex flex-wrap gap-1.5 p-2 border rounded-lg bg-background min-h-[36px]">
+                  {Object.values(ATMOSPHERIC_EFFECT_PRESETS).flat().map((ef) => {
+                    const selected = (editData.atmosphericEffects as string[] || []).includes(ef.id);
+                    return (
+                      <button
+                        key={ef.id}
+                        type="button"
+                        onClick={() => {
+                          const current: string[] = editData.atmosphericEffects as string[] || [];
+                          const next = selected ? current.filter(id => id !== ef.id) : [...current, ef.id];
+                          setEditData({ ...editData, atmosphericEffects: next });
+                        }}
+                        className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                          selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {ef.emoji} {ef.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">特效强度</Label>
+                <Select value={editData.effectIntensity as string || 'moderate'} onValueChange={(v) => setEditData({ ...editData, effectIntensity: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {EFFECT_INTENSITY_PRESETS.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              {/* 镜头信息：景别 + 运动 + 时长 */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {shot.shotSize && (
-                  <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-medium">
-                    {getShotSizeLabel(shot.shotSize)}
-                  </span>
-                )}
-                {shot.cameraMovement && shot.cameraMovement !== 'none' && (
-                  <span className="px-2 py-0.5 bg-muted rounded text-xs">
-                    {CAMERA_MOVEMENT_PRESETS.find(p => p.id === shot.cameraMovement)?.label || shot.cameraMovement}
-                  </span>
-                )}
-                {shot.specialTechnique && shot.specialTechnique !== 'none' && (
-                  <span className="px-2 py-0.5 bg-purple-500/10 text-purple-600 rounded text-xs">
-                    {SPECIAL_TECHNIQUE_PRESETS.find(p => p.id === shot.specialTechnique)?.label || shot.specialTechnique}
-                  </span>
-                )}
-                {(shot as any).duration && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded text-xs">
-                    <Timer className="h-3 w-3" />
-                    {(shot as any).duration}s
-                  </span>
-                )}
-              </div>
-
-              {/* 详细视觉描述 */}
-              {(shot as any).visualDescription && (
-                <div className="bg-gradient-to-r from-primary/5 to-transparent p-3 rounded-lg border-l-2 border-primary/30">
-                  <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    视觉
-                  </div>
-                  <div className="text-sm leading-relaxed">{(shot as any).visualDescription}</div>
-                </div>
-              )}
-
-              {/* 动作描述 */}
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">动作描述</div>
-                <div className="text-sm">{shot.actionSummary}</div>
-              </div>
-
-              {/* 音频设计 */}
-              {((shot as any).ambientSound || (shot as any).soundEffect || shot.dialogue) && (
-                <div className="bg-muted/30 p-3 rounded-lg space-y-2">
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Volume2 className="h-3 w-3" />
-                    音频
-                  </div>
-                  {(shot as any).ambientSound && (
-                    <div>
-                      <span className="text-xs text-muted-foreground">环境声: </span>
-                      <span className="text-xs italic">{(shot as any).ambientSound}</span>
-                    </div>
-                  )}
-                  {(shot as any).soundEffect && (
-                    <div>
-                      <span className="text-xs text-muted-foreground">音效: </span>
-                      <span className="text-xs italic">{(shot as any).soundEffect}</span>
-                    </div>
-                  )}
-                  {shot.dialogue && (
-                    <div>
-                      <span className="text-xs text-muted-foreground">对白: </span>
-                      <span className="text-xs italic">"{shot.dialogue}"</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 关联场景 */}
-              {(() => {
-                const linkedScene = shot.sceneRefId
-                  ? scriptProject?.scriptData?.scenes?.find(s => s.id === shot.sceneRefId)
-                  : undefined;
-                if (!linkedScene) return null;
-                return (
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">关联场景</div>
-                    <button
-                      className="px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-xs hover:bg-blue-500/20 transition-colors"
-                      onClick={() => onSelectScene?.(linkedScene.id)}
-                    >
-                      <MapPin className="inline h-3 w-3 mr-0.5 -mt-0.5" />
-                      {linkedScene.name || linkedScene.location}
-                    </button>
-                  </div>
-                );
-              })()}
-
-              {/* 出场角色 */}
-              {shot.characterNames && shot.characterNames.length > 0 && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">出场角色</div>
-                  <div className="flex flex-wrap gap-1">
-                    {shot.characterNames.map((name, i) => (
-                      <span
-                        key={i}
-                        className="px-2 py-0.5 bg-muted rounded text-xs"
-                      >
-                        {name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 情绪标签 */}
-              {shot.emotionTags && shot.emotionTags.length > 0 && (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">情绪</div>
-                  <div className="flex flex-wrap gap-1">
-                    {shot.emotionTags.map((tag, i) => {
-                      const emotionLabels: Record<string, string> = {
-                        happy: '开心', sad: '悲伤', angry: '愤怒', surprised: '惊讶', fearful: '恐惧', calm: '平静',
-                        tense: '紧张', excited: '兴奋', mysterious: '神秘', romantic: '浪漫', funny: '搞笑', touching: '感动',
-                        serious: '严肃', relaxed: '轻松', playful: '调侃', gentle: '温柔', passionate: '激昂', low: '低沉'
-                      };
-                      return (
-                        <span
-                          key={i}
-                          className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs"
-                        >
-                          {emotionLabels[tag] || tag}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+            <ShotDisplayFields shot={shot} scriptProject={scriptProject} onSelectScene={onSelectScene} />
           )}
 
           {/* 生成状态 */}

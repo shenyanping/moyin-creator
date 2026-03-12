@@ -578,7 +578,7 @@ ${gridItemsZh}
       console.log('[SceneGeneration] 找到', sceneShots.length, '个分镜用于场景:', selectedScene?.name);
       console.log('[SceneGeneration] 动作描写:', actionDescriptions);
       
-      const prompt = buildScenePrompt({ ...selectedScene, location, time, atmosphere, styleId }, actionDescriptions);
+      const prompt = buildScenePrompt({ ...selectedScene, location, time, atmosphere, visualPrompt, styleId }, actionDescriptions);
       const stylePreset = styleId ? getStyleById(styleId) : null;
       const isRealistic = stylePreset?.category === 'real';
       const negativePrompt = isRealistic
@@ -624,7 +624,8 @@ ${gridItemsZh}
           ...selectedScene!, 
           location, 
           time, 
-          atmosphere, 
+          atmosphere,
+          visualPrompt,
           styleId 
         }),
       });
@@ -2728,30 +2729,13 @@ ${anchor} 的背面直视镜头。展示后部结构。背景是物体面向的�
 // Helper functions
 function buildScenePrompt(
   scene: Partial<Scene> & { styleId?: string },
-  actionDescriptions?: string[]
+  _actionDescriptions?: string[]
 ): string {
-  const stylePreset = scene.styleId ? getStyleById(scene.styleId) : null;
-  const styleTokens = stylePreset?.prompt || 'anime style';
-
-  const timePreset = TIME_PRESETS.find(t => t.id === scene.time);
-  const timePrompt = timePreset?.prompt || 'daytime';
-
-  const atmospherePreset = ATMOSPHERE_PRESETS.find(a => a.id === scene.atmosphere);
-  const atmospherePrompt = atmospherePreset?.prompt || '';
-
-  // 从分镜动作描写中提取关键道具
-  let propsPrompt = '';
-  if (actionDescriptions && actionDescriptions.length > 0) {
-    // 合并所有动作描写，提取关键元素
-    const allActions = actionDescriptions.join(' ');
-    const extractedProps = extractPropsFromActions(allActions);
-    if (extractedProps.length > 0) {
-      propsPrompt = `, with ${extractedProps.join(', ')}`;
-      console.log('[buildScenePrompt] 提取的道具:', extractedProps);
-    }
+  if (scene.visualPrompt) {
+    return scene.visualPrompt;
   }
-
-  return `${scene.location}${propsPrompt}, ${timePrompt}, ${atmospherePrompt}, ${styleTokens}, detailed background, environment concept art, establishing shot, cinematic composition, no characters`;
+  // 没有视觉提示词时回退到基础描述
+  return `${scene.location || scene.name || 'scene'}, environment concept art, no characters`;
 }
 
 /**
